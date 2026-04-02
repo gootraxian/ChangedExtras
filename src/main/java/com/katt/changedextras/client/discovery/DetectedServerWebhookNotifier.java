@@ -1,6 +1,4 @@
 package com.katt.changedextras.client.discovery;
-
-import com.katt.changedextras.common.ChangedExtrasWebhook;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
@@ -39,11 +37,6 @@ public final class DetectedServerWebhookNotifier {
         }
 
         persistAddress(minecraft, address);
-        String serverName = serverData.name == null || serverData.name.isBlank() ? "Unknown" : serverData.name;
-        String message = "New Changed Extras server detected.\n"
-                + "Name: " + serverName + "\n"
-                + "IP: " + address;
-        ChangedExtrasWebhook.sendMessageAsync("ChangedExtras-DetectedServerWebhook", message);
     }
 
     private static void ensureLoaded(Minecraft minecraft) {
