@@ -5,6 +5,8 @@ import com.katt.changedextras.network.ChangedExtrasNetwork;
 import com.katt.changedextras.network.SaveArtistBrushPacket;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.Util;
+import net.minecraft.ChatFormatting;
 import net.ltxprogrammer.changed.client.renderer.CustomLatexRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -27,40 +29,12 @@ import java.nio.file.Path;
 public class ArtistBrushScreen extends Screen {
     private static final int PREVIEW_MAX_WIDTH = 220;
     private static final int PREVIEW_MAX_HEIGHT = 220;
-    private static final int CUSTOM_LATEX_ATLAS_SIZE = 160;
-    private static final int UV_HANDLE_SIZE = 8;
-    private static final UvRegion[] UV_REGIONS = new UvRegion[] {
-            new UvRegion("Head", 32, 44, 8, 8, 0xAA4D96FF),
-            new UvRegion("Snout", 108, 70, 4, 2, 0xAA7AE582),
-            new UvRegion("Short Hair", 32, 60, 8, 6, 0xAA8E7CFF),
-            new UvRegion("Long Hair", 36, 25, 8, 11, 0xAA8E7CFF),
-            new UvRegion("Generic Torso", 0, 62, 8, 12, 0xAAFF8C42),
-            new UvRegion("Chiseled Torso", 68, 16, 8, 12, 0xAAF7D154),
-            new UvRegion("Female Torso", 0, 78, 8, 12, 0xAAFF9BB0),
-            new UvRegion("Heavy Torso", 64, 56, 8, 9, 0xAAFFB347),
-            new UvRegion("Right Arm", 24, 83, 4, 12, 0xAAF06292),
-            new UvRegion("Left Arm", 68, 79, 4, 12, 0xAAF06292),
-            new UvRegion("Right Leg", 92, 37, 4, 7, 0xAA4ADEDE),
-            new UvRegion("Left Leg", 40, 92, 4, 7, 0xAA4ADEDE),
-            new UvRegion("Abdomen", 86, 0, 8, 4, 0xAA4ED0A8),
-            new UvRegion("Lower Abdomen", 64, 44, 9, 7, 0xAA4ED0A8),
-            new UvRegion("Lower Torso", 0, 0, 8, 19, 0xAAC77DFF),
-            new UvRegion("Front Left Leg", 34, 103, 4, 7, 0xAA5CC8FF),
-            new UvRegion("Front Right Leg", 50, 104, 4, 7, 0xAA5CC8FF),
-            new UvRegion("Back Left Leg", 74, 98, 4, 7, 0xAA5CC8FF),
-            new UvRegion("Back Right Leg", 90, 98, 4, 7, 0xAA5CC8FF),
-            new UvRegion("Pad Left", 66, 109, 4, 2, 0xAAFFD166),
-            new UvRegion("Pad Right", 106, 108, 4, 2, 0xAAFFD166)
-    };
+    private static final String CUSTOM_LATEX_TEXTURE_URL = "https://github.com/LtxProgrammer/Changed-Minecraft-Mod/blob/1.20.1-dev/src/main/resources/assets/changed/textures/custom_latex.png";
 
     private final InteractionHand hand;
     private final ItemStack stack;
     private EditBox texturePath;
     private EditBox hexColor;
-    private EditBox uvX;
-    private EditBox uvY;
-    private boolean customUvEnabled;
-    private boolean draggingUv;
     private int leftPaneX;
     private int topPaneY;
     private int leftPaneWidth;
@@ -80,10 +54,10 @@ public class ArtistBrushScreen extends Screen {
         super.init();
         recalculateLayout();
         var brushData = ArtistBrushItem.getOrCreateBrushData(stack);
-        customUvEnabled = brushData.getBoolean(ArtistBrushItem.CUSTOM_UV_ENABLED_TAG);
 
         int fieldWidth = Math.max(140, leftPaneWidth - 82);
         texturePath = new EditBox(this.font, leftPaneX, topPaneY + 20, fieldWidth, 20, Component.translatable("screen.changedextras.artist_brush.texture"));
+        texturePath.setMaxLength(Integer.MAX_VALUE);
         texturePath.setValue(brushData.getString(ArtistBrushItem.TEXTURE_PATH_TAG));
         addRenderableWidget(texturePath);
 
@@ -95,31 +69,12 @@ public class ArtistBrushScreen extends Screen {
         hexColor.setValue(brushData.getString(ArtistBrushItem.HEX_COLOR_TAG));
         addRenderableWidget(hexColor);
 
-        addRenderableWidget(Button.builder(toggleText(), button -> {
-                    customUvEnabled = !customUvEnabled;
-                    button.setMessage(toggleText());
-                    updateUvControls();
-                })
-                .bounds(leftPaneX, topPaneY + 140, Math.min(180, leftPaneWidth), 20)
-                .build());
-
-        int uvFieldWidth = Math.min(90, Math.max(70, (leftPaneWidth - 12) / 2));
-        uvX = new EditBox(this.font, leftPaneX, topPaneY + 178, uvFieldWidth, 20, Component.translatable("screen.changedextras.artist_brush.uv_x"));
-        uvX.setValue(Integer.toString(brushData.getInt(ArtistBrushItem.UV_X_TAG)));
-        addRenderableWidget(uvX);
-
-        uvY = new EditBox(this.font, leftPaneX + uvFieldWidth + 12, topPaneY + 178, uvFieldWidth, 20, Component.translatable("screen.changedextras.artist_brush.uv_y"));
-        uvY.setValue(Integer.toString(brushData.getInt(ArtistBrushItem.UV_Y_TAG)));
-        addRenderableWidget(uvY);
-
         addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> saveAndClose())
-                .bounds(leftPaneX, topPaneY + 220, Math.max(90, (leftPaneWidth - 8) / 2), 20)
+                .bounds(leftPaneX, topPaneY + 152, Math.max(90, (leftPaneWidth - 8) / 2), 20)
                 .build());
         addRenderableWidget(Button.builder(Component.translatable("gui.cancel"), button -> onClose())
-                .bounds(leftPaneX + Math.max(90, (leftPaneWidth - 8) / 2) + 8, topPaneY + 220, Math.max(90, leftPaneWidth - Math.max(90, (leftPaneWidth - 8) / 2) - 8), 20)
+                .bounds(leftPaneX + Math.max(90, (leftPaneWidth - 8) / 2) + 8, topPaneY + 152, Math.max(90, leftPaneWidth - Math.max(90, (leftPaneWidth - 8) / 2) - 8), 20)
                 .build());
-
-        updateUvControls();
         setInitialFocus(texturePath);
     }
 
@@ -136,8 +91,6 @@ public class ArtistBrushScreen extends Screen {
         graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.hex"), leftPaneX, topPaneY + 66, 0xCFCFCF, false);
         graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.target", ArtistBrushItem.TARGET_FORM_ID), leftPaneX, topPaneY + 106, 0xA6E3A1, false);
         graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.selected", selectedName), leftPaneX, topPaneY + 120, 0x8DB9FF, false);
-        graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.uv_x"), leftPaneX, topPaneY + 166, 0xCFCFCF, false);
-        graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.uv_y"), uvY.getX(), topPaneY + 166, 0xCFCFCF, false);
         graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.preview"), previewX, topPaneY + 8, 0xCFCFCF, false);
 
         renderTexturePreview(graphics, previewX, previewY, preview);
@@ -148,27 +101,11 @@ public class ArtistBrushScreen extends Screen {
         if (super.mouseClicked(mouseX, mouseY, button)) {
             return true;
         }
-        if (button == 0 && customUvEnabled && isInsidePreview(mouseX, mouseY)) {
-            draggingUv = true;
-            updateUvFromMouse(mouseX, mouseY);
+        if (button == 0 && isInsideTextureLink(mouseX, mouseY)) {
+            Util.getPlatform().openUri(CUSTOM_LATEX_TEXTURE_URL);
             return true;
         }
         return false;
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (draggingUv && customUvEnabled) {
-            updateUvFromMouse(mouseX, mouseY);
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-    }
-
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        draggingUv = false;
-        return super.mouseReleased(mouseX, mouseY, button);
     }
 
     @Override
@@ -181,10 +118,7 @@ public class ArtistBrushScreen extends Screen {
         ChangedExtrasNetwork.INSTANCE.sendToServer(new SaveArtistBrushPacket(
                 hand,
                 texturePath.getValue().trim(),
-                normalizeHex(hexColor.getValue().trim()),
-                getClampedUv(uvX),
-                getClampedUv(uvY),
-                customUvEnabled
+                normalizeHex(hexColor.getValue().trim())
         ));
         onClose();
     }
@@ -213,26 +147,17 @@ public class ArtistBrushScreen extends Screen {
         graphics.blit(preview.texture(), 0, 0, 0, 0, preview.imageWidth(), preview.imageHeight(), preview.imageWidth(), preview.imageHeight());
         graphics.pose().popPose();
 
-        int borderColor = customUvEnabled ? 0xFF00D1FF : 0xFF7F7F7F;
         drawRegionOutline(graphics, imageX, imageY, imageX + drawWidth, imageY + drawHeight, 0xFF5A5A5A);
-
-        for (UvRegion region : UV_REGIONS) {
-            int x1 = imageX + scaleUvX(region.u(), preview);
-            int y1 = imageY + scaleUvY(region.v(), preview);
-            int x2 = imageX + scaleUvX(region.u() + region.width(), preview);
-            int y2 = imageY + scaleUvY(region.v() + region.height(), preview);
-            drawRegionOutline(graphics, x1, y1, x2, y2, region.color());
-        }
-
-        int handleCenterX = imageX + scaleUvX(getClampedUv(uvX), preview);
-        int handleCenterY = imageY + scaleUvY(getClampedUv(uvY), preview);
-        graphics.fill(handleCenterX - UV_HANDLE_SIZE, handleCenterY, handleCenterX + UV_HANDLE_SIZE + 1, handleCenterY + 1, borderColor);
-        graphics.fill(handleCenterX, handleCenterY - UV_HANDLE_SIZE, handleCenterX + 1, handleCenterY + UV_HANDLE_SIZE + 1, borderColor);
-        graphics.fill(handleCenterX - 2, handleCenterY - 2, handleCenterX + 3, handleCenterY + 3, 0xFFFFFFFF);
 
         graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.preview_hint"), previewX, previewY + PREVIEW_MAX_HEIGHT + 8, 0x8DD3FF, false);
         graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.preview_target_hint"), previewX, previewY + PREVIEW_MAX_HEIGHT + 20, 0x9FD7FF, false);
         graphics.drawString(this.font, Component.translatable("screen.changedextras.artist_brush.preview_size", preview.imageWidth(), preview.imageHeight()), previewX, previewY + PREVIEW_MAX_HEIGHT + 32, 0xD7D7D7, false);
+        graphics.drawString(this.font,
+                Component.literal("Click here to get the custom latex texture, so you can make your own texture").withStyle(ChatFormatting.UNDERLINE),
+                previewX,
+                previewY + PREVIEW_MAX_HEIGHT + 44,
+                0x7CC7FF,
+                false);
     }
 
     private PreviewTextureData resolvePreviewTexture() {
@@ -276,34 +201,12 @@ public class ArtistBrushScreen extends Screen {
         }
     }
 
-    private void updateUvControls() {
-        uvX.setEditable(customUvEnabled);
-        uvY.setEditable(customUvEnabled);
-        uvX.setTextColor(customUvEnabled ? 0xFFFFFF : 0x777777);
-        uvY.setTextColor(customUvEnabled ? 0xFFFFFF : 0x777777);
-    }
-
-    private Component toggleText() {
-        return Component.literal((customUvEnabled ? "[x] " : "[ ] "))
-                .append(Component.translatable("screen.changedextras.artist_brush.custom_uv"));
-    }
-
-    private boolean isInsidePreview(double mouseX, double mouseY) {
-        PreviewTextureData preview = resolvePreviewTexture();
-        ImageBounds bounds = getImageBounds(preview);
-        return mouseX >= bounds.x() && mouseX <= bounds.x() + bounds.drawWidth()
-                && mouseY >= bounds.y() && mouseY <= bounds.y() + bounds.drawHeight();
-    }
-
-    private void updateUvFromMouse(double mouseX, double mouseY) {
-        PreviewTextureData preview = resolvePreviewTexture();
-        ImageBounds bounds = getImageBounds(preview);
-        double clampedX = Math.max(bounds.x(), Math.min(bounds.x() + bounds.drawWidth(), mouseX));
-        double clampedY = Math.max(bounds.y(), Math.min(bounds.y() + bounds.drawHeight(), mouseY));
-        int atlasX = Math.round((float)((clampedX - bounds.x()) / Math.max(1.0D, bounds.drawWidth())) * CUSTOM_LATEX_ATLAS_SIZE);
-        int atlasY = Math.round((float)((clampedY - bounds.y()) / Math.max(1.0D, bounds.drawHeight())) * CUSTOM_LATEX_ATLAS_SIZE);
-        uvX.setValue(Integer.toString(clampAtlas(atlasX)));
-        uvY.setValue(Integer.toString(clampAtlas(atlasY)));
+    private boolean isInsideTextureLink(double mouseX, double mouseY) {
+        String text = "Click here to get the custom latex texture, so you can make your own texture";
+        int x = previewX;
+        int y = previewY + PREVIEW_MAX_HEIGHT + 44;
+        int width = this.font.width(text);
+        return mouseX >= x && mouseX <= x + width && mouseY >= y && mouseY <= y + this.font.lineHeight;
     }
 
     private void chooseTextureFile() {
@@ -330,30 +233,6 @@ public class ArtistBrushScreen extends Screen {
     private void showBrowseUnavailableMessage() {
         if (this.minecraft != null && this.minecraft.player != null) {
             this.minecraft.player.displayClientMessage(Component.translatable("message.changedextras.artist_brush.browse_unavailable"), true);
-        }
-    }
-
-    private int scaleUvX(int coordinate, PreviewTextureData preview) {
-        return Math.round((coordinate / (float)CUSTOM_LATEX_ATLAS_SIZE) * preview.drawWidth());
-    }
-
-    private int scaleUvY(int coordinate, PreviewTextureData preview) {
-        return Math.round((coordinate / (float)CUSTOM_LATEX_ATLAS_SIZE) * preview.drawHeight());
-    }
-
-    private static int clampAtlas(int value) {
-        return Math.max(0, Math.min(CUSTOM_LATEX_ATLAS_SIZE, value));
-    }
-
-    private static int getClampedUv(EditBox box) {
-        return clampAtlas(parseInt(box.getValue()));
-    }
-
-    private static int parseInt(String value) {
-        try {
-            return Integer.parseInt(value.trim());
-        } catch (NumberFormatException ignored) {
-            return 0;
         }
     }
 
@@ -389,9 +268,6 @@ public class ArtistBrushScreen extends Screen {
 
     private String trimToWidth(String value, int maxWidth) {
         return this.font.plainSubstrByWidth(value, Math.max(40, maxWidth - 10));
-    }
-
-    private record UvRegion(String name, int u, int v, int width, int height, int color) {
     }
 
     private record ImageBounds(int x, int y, int drawWidth, int drawHeight) {

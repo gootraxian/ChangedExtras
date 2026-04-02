@@ -31,5 +31,15 @@ public final class ChangedExtrasSounds {
                     SoundEvent.createVariableRangeEvent(
                             ResourceLocation.fromNamespaceAndPath(ChangedExtras.MODID, "jackpot_stop")));
 
+    /**
+     * The looping song that plays during the Artist boss fight.
+     * Provide your audio file at:
+     *   src/main/resources/assets/changedextras/sounds/artist_theme.ogg
+     */
+    public static final RegistryObject<SoundEvent> ARTIST_THEME =
+            REGISTRY.register("artist_theme", () ->
+                    SoundEvent.createVariableRangeEvent(
+                            ResourceLocation.fromNamespaceAndPath(ChangedExtras.MODID, "artist_theme")));
+
     private ChangedExtrasSounds() {}
 }

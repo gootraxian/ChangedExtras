@@ -1,6 +1,7 @@
 package com.katt.changedextras.common.ai;
 
 import com.katt.changedextras.ChangedExtras;
+import com.katt.changedextras.Config;
 import net.ltxprogrammer.changed.entity.ChangedEntity;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
@@ -9,8 +10,6 @@ import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
-import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
@@ -18,11 +17,15 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.lang.reflect.Field;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 @Mod.EventBusSubscriber(modid = ChangedExtras.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class LatexMobAIHandler {
-    private static final String INSTALLED_TAG = "changedextras_smart_ai_installed";
+    private static final Set<ChangedEntity> INSTALLED_MOBS =
+            Collections.newSetFromMap(new WeakHashMap<>());
 
     private LatexMobAIHandler() {}
 
@@ -30,30 +33,16 @@ public final class LatexMobAIHandler {
     public static void onEntityJoin(EntityJoinLevelEvent event) {
         if (event.getLevel().isClientSide()) return;
         if (!(event.getEntity() instanceof ChangedEntity mob)) return;
-
-        if (mob.getPersistentData().getBoolean(INSTALLED_TAG)) return;
-        mob.getPersistentData().putBoolean(INSTALLED_TAG, true);
-
-        removeConflictingLookGoals(mob);
-        installTargetGoal(mob);
-        mob.setCanPickUpLoot(true);
-
-        AttributeInstance followRange = mob.getAttribute(Attributes.FOLLOW_RANGE);
-        if (followRange != null && followRange.getBaseValue() < 40.0D) {
-            followRange.setBaseValue(40.0D);
-        }
-
-        AttributeInstance speed = mob.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (speed != null) {
-            speed.setBaseValue(0.24D);
-        }
+        ensureSmartAiInstalled(mob);
     }
 
     @SubscribeEvent
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {
         if (!(event.getEntity() instanceof ChangedEntity mob)) return;
         if (mob.level().isClientSide()) return;
+        if (!Config.smartLatexAiEnabled) return;
 
+        ensureSmartAiInstalled(mob);
         LatexMind mind = LatexMindStore.get(mob);
         mind.tick(mob);
     }
@@ -68,10 +57,23 @@ public final class LatexMobAIHandler {
         );
     }
 
-    private static void installTargetGoal(ChangedEntity mob) {
-        GoalSelector targets = getSelector(mob, "targetSelector");
-        if (targets != null) {
-            targets.addGoal(1, new NearestAttackableTargetGoal<>(mob, Player.class, true));
+    private static void ensureSmartAiInstalled(ChangedEntity mob) {
+        if (!Config.smartLatexAiEnabled || INSTALLED_MOBS.contains(mob)) {
+            return;
+        }
+
+        INSTALLED_MOBS.add(mob);
+        removeConflictingLookGoals(mob);
+        mob.setCanPickUpLoot(true);
+
+        AttributeInstance followRange = mob.getAttribute(Attributes.FOLLOW_RANGE);
+        if (followRange != null && followRange.getBaseValue() < 40.0D) {
+            followRange.setBaseValue(40.0D);
+        }
+
+        AttributeInstance speed = mob.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed != null) {
+            speed.setBaseValue(0.24D);
         }
     }
 

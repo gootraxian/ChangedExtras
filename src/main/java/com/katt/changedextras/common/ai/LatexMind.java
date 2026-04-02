@@ -1,5 +1,6 @@
 package com.katt.changedextras.common.ai;
 
+import com.katt.changedextras.Config;
 import net.ltxprogrammer.changed.entity.ChangedEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.LivingEntity;
@@ -9,8 +10,6 @@ import javax.annotation.Nullable;
 import java.util.UUID;
 
 public final class LatexMind {
-    public static final int MEMORY_TICKS = 160;
-
     @Nullable public UUID targetId;
     @Nullable public BlockPos lastSeenPos;
     @Nullable public Vec3 lastSeenEye;
@@ -59,7 +58,8 @@ public final class LatexMind {
     }
 
     public boolean remembersRecentTarget(ChangedEntity mob) {
-        return lastSeenPos != null && mob.tickCount - lastSeenTick <= MEMORY_TICKS;
+        int memoryTicks = Config.latexAttackerMemoryTicks;
+        return memoryTicks > 0 && lastSeenPos != null && mob.tickCount - lastSeenTick <= memoryTicks;
     }
 
     public void clearTarget() {

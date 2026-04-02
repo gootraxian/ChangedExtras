@@ -167,6 +167,16 @@ public class ArtistEntityModel extends AdvancedHumanoidModel<ArtistEntity> {
                 leftArm.zRot = -0.1F;
                 head.yRot += 0.1F;
             }
+            case ArtistEntity.ATTACK_POSE_RELOAD -> {
+                rightArm.xRot = -1.55F + sway * 0.35F;
+                rightArm.yRot = -0.3F;
+                rightArm.zRot = 0.55F;
+                leftArm.xRot = -1.35F - sway * 0.25F;
+                leftArm.yRot = 0.45F;
+                leftArm.zRot = -0.2F;
+                head.xRot += 0.28F;
+                torso.xRot += 0.16F;
+            }
             default -> {
             }
         }

@@ -38,6 +38,11 @@ public final class DiscoveryScreen extends Screen {
 
     @Override
     protected void init() {
+        if (!DiscoverySupport.isAuthorizedUser(this.minecraft)) {
+            this.onClose();
+            return;
+        }
+
         if (this.serverList == null) {
             this.serverList = new DiscoveryServerList(this, this.minecraft, this.width, this.height, 32, this.height - 64, 40);
             this.startScan();
@@ -179,7 +184,6 @@ public final class DiscoveryScreen extends Screen {
     private List<DiscoveryTrackedServer> getVisibleServers() {
         return this.trackedServers.stream()
                 .filter(DiscoveryTrackedServer::hasChangedExtras)
-                .filter(DiscoveryTrackedServer::discoveryEnabled)
                 .sorted(Comparator.comparing(server -> server.serverData().name.toLowerCase()))
                 .collect(Collectors.toList());
     }

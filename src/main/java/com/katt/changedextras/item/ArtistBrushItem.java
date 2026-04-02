@@ -1,7 +1,7 @@
 package com.katt.changedextras.item;
 
+import com.katt.changedextras.client.ArtistBrushClientAccess;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
@@ -20,9 +20,6 @@ public class ArtistBrushItem extends Item {
     public static final String BRUSH_DATA_TAG = "ArtistBrushData";
     public static final String TEXTURE_PATH_TAG = "TexturePath";
     public static final String HEX_COLOR_TAG = "HexColor";
-    public static final String UV_X_TAG = "UvX";
-    public static final String UV_Y_TAG = "UvY";
-    public static final String CUSTOM_UV_ENABLED_TAG = "CustomUvEnabled";
     public static final String TARGET_FORM_TAG = "TargetForm";
     public static final String TARGET_FORM_ID = "changed:custom_latex";
     public static final String SELECTED_TARGET_NAME_TAG = "SelectedTargetName";
@@ -37,7 +34,7 @@ public class ArtistBrushItem extends Item {
     public InteractionResultHolder<ItemStack> use(Level level, net.minecraft.world.entity.player.Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
         if (level.isClientSide) {
-            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> openEditor(hand));
+            DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> ArtistBrushClientAccess.openEditor(hand));
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);
     }
@@ -55,8 +52,6 @@ public class ArtistBrushItem extends Item {
         tooltip.add(Component.translatable("item.changedextras.artist_brush.hex", brushData.getString(HEX_COLOR_TAG)).withStyle(ChatFormatting.LIGHT_PURPLE));
         tooltip.add(Component.translatable("item.changedextras.artist_brush.target", brushData.getString(TARGET_FORM_TAG)).withStyle(ChatFormatting.GREEN));
         tooltip.add(Component.translatable("item.changedextras.artist_brush.selected", brushData.getString(SELECTED_TARGET_NAME_TAG)).withStyle(ChatFormatting.BLUE));
-        tooltip.add(Component.translatable("item.changedextras.artist_brush.uv_toggle", brushData.getBoolean(CUSTOM_UV_ENABLED_TAG) ? "On" : "Off").withStyle(ChatFormatting.GOLD));
-        tooltip.add(Component.translatable("item.changedextras.artist_brush.uv", brushData.getInt(UV_X_TAG), brushData.getInt(UV_Y_TAG)).withStyle(ChatFormatting.YELLOW));
     }
 
     public static CompoundTag getOrCreateBrushData(ItemStack stack) {
@@ -65,9 +60,6 @@ public class ArtistBrushItem extends Item {
             brushData = new CompoundTag();
             brushData.putString(TEXTURE_PATH_TAG, "");
             brushData.putString(HEX_COLOR_TAG, "#FFFFFF");
-            brushData.putInt(UV_X_TAG, 0);
-            brushData.putInt(UV_Y_TAG, 0);
-            brushData.putBoolean(CUSTOM_UV_ENABLED_TAG, false);
             brushData.putString(TARGET_FORM_TAG, TARGET_FORM_ID);
             brushData.putString(SELECTED_TARGET_NAME_TAG, "None");
             brushData.putString(SELECTED_TARGET_UUID_TAG, "");
@@ -82,15 +74,5 @@ public class ArtistBrushItem extends Item {
         brushData.putString(SELECTED_TARGET_NAME_TAG, name);
         brushData.putString(SELECTED_TARGET_UUID_TAG, uuid);
         brushData.putString(SELECTED_TARGET_TYPE_TAG, type);
-    }
-
-    private static void openEditor(InteractionHand hand) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) {
-            return;
-        }
-
-        ItemStack stack = minecraft.player.getItemInHand(hand);
-        minecraft.setScreen(new com.katt.changedextras.client.ArtistBrushScreen(hand, stack));
     }
 }

@@ -1,6 +1,11 @@
 package com.katt.changedextras.network;
 
 import com.katt.changedextras.client.ArtistTintManager;
+import net.ltxprogrammer.changed.entity.variant.TransfurVariantInstance;
+import net.ltxprogrammer.changed.process.ProcessTransfur;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
@@ -46,10 +51,50 @@ public class SyncArtistColorPacket {
         ctx.enqueueWork(() -> DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             if (msg.enabled) {
                 ArtistTintManager.setAppearance(msg.entityId, msg.color, msg.texturePath, msg.uvX, msg.uvY, msg.customUvEnabled);
+                mirrorToPlayerVariant(msg);
             } else {
                 ArtistTintManager.clearTint(msg.entityId);
+                clearMirroredPlayerVariant(msg.entityId);
             }
         }));
         ctx.setPacketHandled(true);
+    }
+
+    private static void mirrorToPlayerVariant(SyncArtistColorPacket msg) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            return;
+        }
+
+        Entity entity = minecraft.level.getEntity(msg.entityId);
+        if (!(entity instanceof Player player)) {
+            return;
+        }
+
+        TransfurVariantInstance<?> variant = ProcessTransfur.getPlayerTransfurVariant(player);
+        if (variant == null || variant.getChangedEntity() == null) {
+            return;
+        }
+
+        ArtistTintManager.setAppearance(variant.getChangedEntity().getId(), msg.color, msg.texturePath, msg.uvX, msg.uvY, msg.customUvEnabled);
+    }
+
+    private static void clearMirroredPlayerVariant(int entityId) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) {
+            return;
+        }
+
+        Entity entity = minecraft.level.getEntity(entityId);
+        if (!(entity instanceof Player player)) {
+            return;
+        }
+
+        TransfurVariantInstance<?> variant = ProcessTransfur.getPlayerTransfurVariant(player);
+        if (variant == null || variant.getChangedEntity() == null) {
+            return;
+        }
+
+        ArtistTintManager.clearTint(variant.getChangedEntity().getId());
     }
 }

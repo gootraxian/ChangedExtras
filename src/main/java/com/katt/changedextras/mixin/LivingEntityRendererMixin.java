@@ -21,12 +21,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class LivingEntityRendererMixin<T extends LivingEntity> {
     @Inject(method = "render", at = @At("HEAD"))
     private void changedextras$applyArtistTint(T entity, float entityYaw, float partialTicks, PoseStack poseStack, net.minecraft.client.renderer.MultiBufferSource buffer, int packedLight, CallbackInfo ci) {
-        if (entity instanceof ChangedEntity && ArtistTintManager.getTexture(entity.getId()) != null) {
+        if (entity instanceof ChangedEntity && ArtistTintManager.getTexture(entity) != null) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             return;
         }
 
-        Integer tint = ArtistTintManager.getTint(entity.getId());
+        Integer tint = ArtistTintManager.getTint(entity);
         if (tint == null) {
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
             return;

@@ -26,6 +26,8 @@ public class ClientEventHandler {
             Minecraft mc = Minecraft.getInstance();
             if (mc.level == null || mc.isPaused()) return;
 
+            ArtistBossMusicManager.tick(mc);
+
             for (Player player : mc.level.players()) {
                 if (JackpotSoundManager.isActive(player.getUUID())) {
                     spawnJackpotParticles(player);
@@ -41,6 +43,7 @@ public class ClientEventHandler {
         public static void onClientDisconnect(net.minecraftforge.event.level.LevelEvent.Unload event) {
             if (event.getLevel().isClientSide()) {
                 JackpotSoundManager.clear(Minecraft.getInstance());
+                ArtistBossMusicManager.clear(Minecraft.getInstance());
                 ArtistTintManager.clearAll();
             }
         }

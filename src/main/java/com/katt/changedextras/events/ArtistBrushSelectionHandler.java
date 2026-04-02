@@ -1,6 +1,7 @@
 package com.katt.changedextras.events;
 
 import com.katt.changedextras.ChangedExtras;
+import com.katt.changedextras.common.ArtistBrushTargetValidator;
 import com.katt.changedextras.item.ArtistBrushItem;
 import net.ltxprogrammer.changed.entity.ChangedEntity;
 import net.minecraft.network.chat.Component;
@@ -34,6 +35,11 @@ public final class ArtistBrushSelectionHandler {
         if (!(target instanceof Player) && !(target instanceof ChangedEntity)) {
             return;
         }
+        if (!ArtistBrushTargetValidator.isAllowedTarget(target)) {
+            player.displayClientMessage(Component.translatable("message.changedextras.artist_brush.custom_latex_only"), true);
+            event.setCanceled(true);
+            return;
+        }
 
         ArtistBrushItem.setSelectedTarget(
                 stack,
@@ -54,6 +60,11 @@ public final class ArtistBrushSelectionHandler {
 
         ItemStack stack = player.getItemInHand(InteractionHand.MAIN_HAND);
         if (!(stack.getItem() instanceof ArtistBrushItem)) {
+            return;
+        }
+        if (!ArtistBrushTargetValidator.isAllowedTarget(player)) {
+            player.displayClientMessage(Component.translatable("message.changedextras.artist_brush.custom_latex_only"), true);
+            event.setCanceled(true);
             return;
         }
 

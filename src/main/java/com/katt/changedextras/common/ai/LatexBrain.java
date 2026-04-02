@@ -1,6 +1,10 @@
 package com.katt.changedextras.common.ai;
 
+import com.katt.changedextras.common.LatexCuddleHelper;
 import net.ltxprogrammer.changed.entity.ChangedEntity;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.ltxprogrammer.changed.process.ProcessTransfur;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -9,6 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ArmorItem;
@@ -34,21 +39,25 @@ import net.minecraft.world.phys.Vec3;
 import javax.annotation.Nullable;
 
 public class LatexBrain {
-    private static final double ATTACK_RANGE = 2.6D;
-    private static final double CLOSE_PRESSURE_RANGE = 5.0D;
+    private static final TagKey<net.minecraft.world.entity.EntityType<?>> CHANGED_HUMANOIDS =
+            TagKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath("changed", "humanoids"));
+    private static final TagKey<net.minecraft.world.entity.EntityType<?>> CHANGED_LATEXES =
+            TagKey.create(Registries.ENTITY_TYPE, ResourceLocation.fromNamespaceAndPath("changed", "latexes"));
+    private static final double ATTACK_RANGE = 2.9D;
+    private static final double CLOSE_PRESSURE_RANGE = 7.5D;
     private static final double SEARCH_REACH = 1.75D;
     private static final double LOOT_RANGE = 10.0D;
     private static final double PICKUP_RANGE = 2.2D;
-    private static final float DIRECT_WALK_SPEED = 1.75F;
-    private static final float DIRECT_RUN_SPEED = 1.885F;
-    private static final double SPRINT_JUMP_BOOST = 0.7775D;
+    private static final float DIRECT_WALK_SPEED = 2.05F;
+    private static final float DIRECT_RUN_SPEED = 2.35F;
+    private static final double SPRINT_JUMP_BOOST = 0.9D;
     private static final double BREAK_PATH_STEP = 0.5D;
     private static final int BREAK_PATH_SCAN_BLOCKS = 16;
     private static final int TERRAIN_COMMIT_TICKS = 10;
     private static final int BUILD_BLOCK_RESERVE = 4;
     private static final int SEARCH_TIMEOUT = 80;
     private static final int BLOCK_BREAK_COMMIT = 18;
-    private static final int ATTACK_COOLDOWN = 12;
+    private static final int ATTACK_COOLDOWN = 10;
 
     private enum State {
         IDLE,
@@ -76,7 +85,12 @@ public class LatexBrain {
             return;
         }
 
-        Player target = resolveTarget(mob, mind);
+        if (shouldDropTarget(mob, mind)) {
+            mob.setTarget(null);
+            mind.clearTarget();
+        }
+
+        LivingEntity target = resolveTarget(mob, mind);
         if (target != null && target.isAlive()) {
             boolean los = mob.hasLineOfSight(target);
             mind.remember(target, mob.tickCount, los);
@@ -94,7 +108,7 @@ public class LatexBrain {
         updateStuck(mob, mind);
 
         if (thinkCooldown-- <= 0) {
-            thinkCooldown = 4;
+            thinkCooldown = 2;
             state = decideState(mob, mind, target);
         }
 
@@ -121,7 +135,7 @@ public class LatexBrain {
         if (mind.allyAlertCooldown > 0) mind.allyAlertCooldown--;
     }
 
-    private State decideState(ChangedEntity mob, LatexMind mind, @Nullable Player target) {
+    private State decideState(ChangedEntity mob, LatexMind mind, @Nullable LivingEntity target) {
         if (target != null && target.isAlive()) {
             double distance = mob.distanceTo(target);
             Path path = createReachPath(mob, target);
@@ -170,7 +184,7 @@ public class LatexBrain {
         }
     }
 
-    private void chase(ChangedEntity mob, @Nullable Player target) {
+    private void chase(ChangedEntity mob, @Nullable LivingEntity target) {
         if (target == null) return;
 
         equipBestCombatTool(mob);
@@ -179,12 +193,12 @@ public class LatexBrain {
         } else {
             mob.setZza(0.0F);
             mob.setXxa(0.0F);
-            double speed = target.isSprinting() ? 1.55D : 1.4D;
+            double speed = target.isSprinting() ? 1.9D : 1.7D;
             Path path = createReachPath(mob, target);
             if (path != null) {
                 mob.getNavigation().moveTo(path, speed);
             } else {
-                mob.getNavigation().moveTo(target, 1.2D);
+                mob.getNavigation().moveTo(target, 1.55D);
             }
             mob.getLookControl().setLookAt(target, 10.0F, 10.0F);
         }
@@ -192,7 +206,7 @@ public class LatexBrain {
         maybeAlertNearbyLatex(mob, target);
     }
 
-    private void attack(ChangedEntity mob, @Nullable Player target) {
+    private void attack(ChangedEntity mob, @Nullable LivingEntity target) {
         if (target == null) return;
 
         equipBestCombatTool(mob);
@@ -207,26 +221,17 @@ public class LatexBrain {
         }
 
         mob.getNavigation().stop();
-        applyDirectChaseMovement(mob, target, 1.2F);
+        applyDirectChaseMovement(mob, target, target.isSprinting() ? DIRECT_RUN_SPEED : DIRECT_WALK_SPEED);
 
         LatexMind mind = LatexMindStore.get(mob);
         if (mind.attackCooldown > 0) return;
 
         mob.swing(InteractionHand.MAIN_HAND);
         if (mob.distanceTo(target) <= ATTACK_RANGE + 0.15D) {
-            var variant = mob.getSelfVariant();
-            var targetVariant = ProcessTransfur.getPlayerTransfurVariant(target);
-            if (targetVariant != null) {
+            if (target instanceof Player playerTarget && ProcessTransfur.getPlayerTransfurVariant(playerTarget) != null) {
                 mob.doHurtTarget(target);
-            } else if (variant != null) {
-                net.ltxprogrammer.changed.process.ProcessTransfur.progressTransfur(
-                        target,
-                        0.9f,
-                        variant,
-                        net.ltxprogrammer.changed.entity.TransfurContext.hazard(
-                                net.ltxprogrammer.changed.entity.TransfurCause.GRAB_REPLICATE
-                        )
-                );
+            } else if (!mob.tryTransfurTarget(target)) {
+                mob.doHurtTarget(target);
             }
 
             Vec3 knock = target.position().subtract(mob.position()).normalize().scale(0.25D);
@@ -236,7 +241,7 @@ public class LatexBrain {
         }
     }
 
-    private void breakObstacle(ChangedEntity mob, LatexMind mind, @Nullable Player target) {
+    private void breakObstacle(ChangedEntity mob, LatexMind mind, @Nullable LivingEntity target) {
         if (target == null) return;
 
         BlockPos pos = mind.plannedBreakPos != null ? mind.plannedBreakPos : findBreakTarget(mob, target);
@@ -285,7 +290,7 @@ public class LatexBrain {
         }
     }
 
-    private void buildTowardTarget(ChangedEntity mob, LatexMind mind, @Nullable Player target) {
+    private void buildTowardTarget(ChangedEntity mob, LatexMind mind, @Nullable LivingEntity target) {
         if (target == null) return;
 
         boolean towerMode = shouldTowerUp(mob, target);
@@ -360,7 +365,7 @@ public class LatexBrain {
         }
     }
 
-    private boolean handleTowerBuildStep(ChangedEntity mob, LatexMind mind, Player target, ItemStack blockStack, BlockState placeState) {
+    private boolean handleTowerBuildStep(ChangedEntity mob, LatexMind mind, LivingEntity target, ItemStack blockStack, BlockState placeState) {
         BlockPos towerPos = mob.blockPosition();
         Vec3 center = Vec3.atBottomCenterOf(towerPos);
         double dx = center.x - mob.getX();
@@ -431,7 +436,7 @@ public class LatexBrain {
         }
     }
 
-    private void reposition(ChangedEntity mob, LatexMind mind, @Nullable Player target) {
+    private void reposition(ChangedEntity mob, LatexMind mind, @Nullable LivingEntity target) {
         if (target == null) return;
 
         Vec3 away = mob.position().subtract(target.position());
@@ -448,20 +453,20 @@ public class LatexBrain {
         }
     }
 
-    private boolean shouldRetreat(ChangedEntity mob, Player target) {
+    private boolean shouldRetreat(ChangedEntity mob, LivingEntity target) {
         return mob.getHealth() < mob.getMaxHealth() * 0.25F
                 && mob.distanceTo(target) < 3.0D
                 && !mob.hasLineOfSight(target);
     }
 
-    private boolean canUseDirectChase(ChangedEntity mob, Player target) {
+    private boolean canUseDirectChase(ChangedEntity mob, LivingEntity target) {
         return mob.hasLineOfSight(target)
-                && Math.abs(target.getY() - mob.getY()) < 1.25D
+                && Math.abs(target.getY() - mob.getY()) < 1.8D
                 && !mob.horizontalCollision
-                && mob.distanceTo(target) < 12.0D;
+                && mob.distanceTo(target) < 18.0D;
     }
 
-    private void applyDirectChaseMovement(ChangedEntity mob, Player target, float moveSpeed) {
+    private void applyDirectChaseMovement(ChangedEntity mob, LivingEntity target, float moveSpeed) {
         mob.getNavigation().stop();
         mob.getMoveControl().strafe(0.0F, 0.0F);
 
@@ -486,7 +491,7 @@ public class LatexBrain {
         return current + delta;
     }
 
-    private boolean shouldBuild(ChangedEntity mob, LatexMind mind, Player target) {
+    private boolean shouldBuild(ChangedEntity mob, LatexMind mind, LivingEntity target) {
         if (mind.buildCooldown > 0) return false;
         int blockCount = countUsableBuildingBlocks(mob);
         if (blockCount <= 0) return false;
@@ -496,13 +501,13 @@ public class LatexBrain {
         return blockCount - requiredBlocks >= BUILD_BLOCK_RESERVE || requiredBlocks <= 1;
     }
 
-    private boolean shouldTowerUp(ChangedEntity mob, Player target) {
+    private boolean shouldTowerUp(ChangedEntity mob, LivingEntity target) {
         double verticalGap = target.getY() - mob.getY();
         double horizontalDistSqr = mob.position().subtract(target.position()).multiply(1.0D, 0.0D, 1.0D).lengthSqr();
         return verticalGap > 1.15D && horizontalDistSqr <= 6.25D;
     }
 
-    private boolean isTowerPlacement(ChangedEntity mob, Player target, BlockPos placePos) {
+    private boolean isTowerPlacement(ChangedEntity mob, LivingEntity target, BlockPos placePos) {
         return shouldTowerUp(mob, target) && placePos.equals(mob.blockPosition());
     }
 
@@ -601,7 +606,7 @@ public class LatexBrain {
         return false;
     }
 
-    private void smartJump(ChangedEntity mob, Player target) {
+    private void smartJump(ChangedEntity mob, LivingEntity target) {
         LatexMind mind = LatexMindStore.get(mob);
         if (mind.jumpCooldown > 0 || !mob.onGround()) return;
 
@@ -626,43 +631,49 @@ public class LatexBrain {
         }
     }
 
-    private boolean canSprintJumpChase(ChangedEntity mob, Player target) {
+    private boolean canSprintJumpChase(ChangedEntity mob, LivingEntity target) {
         return canUseDirectChase(mob, target)
-                && Math.abs(target.getY() - mob.getY()) <= 1.0D
-                && mob.distanceTo(target) > 4.0D
-                && mob.distanceTo(target) < 12.0D
+                && Math.abs(target.getY() - mob.getY()) <= 1.5D
+                && mob.distanceTo(target) > 3.0D
+                && mob.distanceTo(target) < 16.0D
                 && !mob.horizontalCollision;
     }
 
     @Nullable
-    private Player resolveTarget(ChangedEntity mob, LatexMind mind) {
-        if (mob.getTarget() instanceof Player player && player.isAlive()) {
-            if (mind.targetId == null || !mind.targetId.equals(player.getUUID())) {
-                mind.targetId = player.getUUID();
+    private LivingEntity resolveTarget(ChangedEntity mob, LatexMind mind) {
+        LivingEntity currentTarget = mob.getTarget();
+        if (currentTarget != null && isValidAggroTarget(mob, currentTarget)) {
+            if (mind.targetId == null || !mind.targetId.equals(currentTarget.getUUID())) {
+                mind.targetId = currentTarget.getUUID();
             }
-            return player;
+            return currentTarget;
         }
 
-        if (mind.targetId != null && mob.level() instanceof ServerLevel server) {
-            Player remembered = server.getPlayerByUUID(mind.targetId);
-            if (remembered != null && remembered.isAlive()) {
-                mob.setTarget(remembered);
-                return remembered;
-            }
+        LivingEntity remembered = findRememberedTarget(mob, mind);
+        if (remembered != null) {
+            mob.setTarget(remembered);
+            return remembered;
+        }
+
+        LivingEntity visibleTarget = findVisibleTarget(mob);
+        if (visibleTarget != null) {
+            mob.setTarget(visibleTarget);
+            mind.targetId = visibleTarget.getUUID();
+            return visibleTarget;
         }
 
         return null;
     }
 
     @Nullable
-    private Path createReachPath(ChangedEntity mob, Player target) {
+    private Path createReachPath(ChangedEntity mob, LivingEntity target) {
         Path path = mob.getNavigation().createPath(target, 0);
         if (path == null) return null;
         return path.canReach() ? path : null;
     }
 
     @Nullable
-    private State chooseTerrainAction(ChangedEntity mob, LatexMind mind, Player target) {
+    private State chooseTerrainAction(ChangedEntity mob, LatexMind mind, LivingEntity target) {
         TerrainPlan plan = analyzeTerrainPlan(mob, mind, target);
         BlockPos breakPos = plan.breakPos();
         BlockPos buildPos = plan.buildPos();
@@ -683,7 +694,7 @@ public class LatexBrain {
         return State.BREAK;
     }
 
-    private TerrainPlan analyzeTerrainPlan(ChangedEntity mob, LatexMind mind, Player target) {
+    private TerrainPlan analyzeTerrainPlan(ChangedEntity mob, LatexMind mind, LivingEntity target) {
         BlockPos immediateBreak = findPlannedBreakTarget(mob, target);
         BlockPos immediateBuild = shouldBuild(mob, mind, target) ? findImmediateBuildPlacement(mob, target) : null;
 
@@ -705,7 +716,7 @@ public class LatexBrain {
     }
 
     @Nullable
-    private BlockPos findBreakTarget(ChangedEntity mob, Player target) {
+    private BlockPos findBreakTarget(ChangedEntity mob, LivingEntity target) {
         BlockPos immediate = findPlannedBreakTarget(mob, target);
         if (immediate != null) {
             return immediate;
@@ -714,7 +725,7 @@ public class LatexBrain {
     }
 
     @Nullable
-    private BlockPos findPlannedBreakTarget(ChangedEntity mob, Player target) {
+    private BlockPos findPlannedBreakTarget(ChangedEntity mob, LivingEntity target) {
         BlockPos corridorBlock = findBreakBlockAlongImaginaryPath(mob, target);
         if (corridorBlock != null) {
             return corridorBlock;
@@ -724,7 +735,7 @@ public class LatexBrain {
     }
 
     @Nullable
-    private BlockPos findImmediateBreakTarget(ChangedEntity mob, Player target) {
+    private BlockPos findImmediateBreakTarget(ChangedEntity mob, LivingEntity target) {
         Direction direction = horizontalDirectionToward(mob, target);
         BlockPos origin = mob.blockPosition();
         BlockPos[] candidates = new BlockPos[] {
@@ -745,7 +756,7 @@ public class LatexBrain {
     }
 
     @Nullable
-    private BlockPos findBreakBlockAlongImaginaryPath(ChangedEntity mob, Player target) {
+    private BlockPos findBreakBlockAlongImaginaryPath(ChangedEntity mob, LivingEntity target) {
         Vec3 start = Vec3.atBottomCenterOf(mob.blockPosition());
         Vec3 end = Vec3.atBottomCenterOf(target.blockPosition());
         Vec3 delta = end.subtract(start);
@@ -820,7 +831,7 @@ public class LatexBrain {
     }
 
     @Nullable
-    private BlockPos findRaycastBreakTarget(ChangedEntity mob, Player target) {
+    private BlockPos findRaycastBreakTarget(ChangedEntity mob, LivingEntity target) {
         BlockHitResult hit = mob.level().clip(new ClipContext(
                 mob.getEyePosition(),
                 target.getEyePosition(),
@@ -845,7 +856,7 @@ public class LatexBrain {
     }
 
     @Nullable
-    private BlockPos findBuildPlacement(ChangedEntity mob, Player target) {
+    private BlockPos findBuildPlacement(ChangedEntity mob, LivingEntity target) {
         BlockPos immediate = findImmediateBuildPlacement(mob, target);
         if (immediate != null) {
             return immediate;
@@ -854,7 +865,7 @@ public class LatexBrain {
     }
 
     @Nullable
-    private BlockPos findImmediateBuildPlacement(ChangedEntity mob, Player target) {
+    private BlockPos findImmediateBuildPlacement(ChangedEntity mob, LivingEntity target) {
         BlockState buildState = defaultBuildState(mob);
         if (buildState == null) {
             return null;
@@ -886,7 +897,7 @@ public class LatexBrain {
     }
 
     @Nullable
-    private BlockPos findFallbackBuildPlacement(ChangedEntity mob, Player target) {
+    private BlockPos findFallbackBuildPlacement(ChangedEntity mob, LivingEntity target) {
         Direction direction = horizontalDirectionToward(mob, target);
         BlockPos front = mob.blockPosition().relative(direction);
         BlockPos bridge = front.below();
@@ -913,7 +924,7 @@ public class LatexBrain {
         return null;
     }
 
-    private Direction horizontalDirectionToward(ChangedEntity mob, Player target) {
+    private Direction horizontalDirectionToward(ChangedEntity mob, LivingEntity target) {
         Vec3 delta = target.position().subtract(mob.position());
         if (Math.abs(delta.x) > Math.abs(delta.z)) {
             return delta.x >= 0.0D ? Direction.EAST : Direction.WEST;
@@ -1126,7 +1137,7 @@ public class LatexBrain {
         return count;
     }
 
-    private int estimateBuildBlocksNeeded(ChangedEntity mob, Player target, @Nullable BlockPos buildPos) {
+    private int estimateBuildBlocksNeeded(ChangedEntity mob, LivingEntity target, @Nullable BlockPos buildPos) {
         if (buildPos == null) return Integer.MAX_VALUE;
         if (buildPos.equals(mob.blockPosition()) && shouldTowerUp(mob, target)) {
             return Math.max(1, Math.min(8, target.blockPosition().getY() - mob.blockPosition().getY()));
@@ -1138,7 +1149,7 @@ public class LatexBrain {
         return 1;
     }
 
-    private double estimateBuildCost(ChangedEntity mob, Player target, @Nullable BlockPos buildPos) {
+    private double estimateBuildCost(ChangedEntity mob, LivingEntity target, @Nullable BlockPos buildPos) {
         if (buildPos == null) return Double.POSITIVE_INFINITY;
         int blocksAvailable = countUsableBuildingBlocks(mob);
         int blocksNeeded = estimateBuildBlocksNeeded(mob, target, buildPos);
@@ -1305,7 +1316,7 @@ public class LatexBrain {
                 + EnchantmentHelper.getTagEnchantmentLevel(net.minecraft.world.item.enchantment.Enchantments.ALL_DAMAGE_PROTECTION, stack) * 1.5D;
     }
 
-    private void maybeAlertNearbyLatex(ChangedEntity mob, Player target) {
+    private void maybeAlertNearbyLatex(ChangedEntity mob, LivingEntity target) {
         LatexMind mind = LatexMindStore.get(mob);
         if (mind.allyAlertCooldown > 0) return;
         mind.allyAlertCooldown = 30;
@@ -1316,6 +1327,86 @@ public class LatexBrain {
             ally.setTarget(target);
             allyMind.remember(target, ally.tickCount, ally.hasLineOfSight(target));
         }
+    }
+
+    @Nullable
+    private LivingEntity findVisibleTarget(ChangedEntity mob) {
+        double range = Math.max(16.0D, mob.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE));
+        LivingEntity bestTarget = null;
+        double bestDistance = Double.MAX_VALUE;
+
+        for (LivingEntity candidate : mob.level().getEntitiesOfClass(LivingEntity.class, mob.getBoundingBox().inflate(range))) {
+            if (!isValidAggroTarget(mob, candidate) || !mob.hasLineOfSight(candidate)) {
+                continue;
+            }
+
+            double distance = mob.distanceToSqr(candidate);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestTarget = candidate;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    @Nullable
+    private LivingEntity findRememberedTarget(ChangedEntity mob, LatexMind mind) {
+        if (mind.targetId == null) {
+            return null;
+        }
+
+        double range = Math.max(24.0D, mob.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE) + 16.0D);
+        for (LivingEntity candidate : mob.level().getEntitiesOfClass(LivingEntity.class, mob.getBoundingBox().inflate(range))) {
+            if (mind.targetId.equals(candidate.getUUID()) && isValidAggroTarget(mob, candidate)) {
+                return candidate;
+            }
+        }
+
+        if (mob.level() instanceof ServerLevel server) {
+            Player player = server.getPlayerByUUID(mind.targetId);
+            if (player != null && isValidAggroTarget(mob, player)) {
+                return player;
+            }
+        }
+
+        return null;
+    }
+
+    private boolean isValidAggroTarget(ChangedEntity mob, LivingEntity target) {
+        if (target == mob || !target.isAlive() || target instanceof ChangedEntity) {
+            return false;
+        }
+
+        if (target instanceof Player player) {
+            if (LatexCuddleHelper.isTamingOwner(mob, player)) {
+                return false;
+            }
+            if (player.isCreative() || player.isSpectator()) {
+                return false;
+            }
+            return true;
+        }
+
+        if (target.getType().is(CHANGED_LATEXES)) {
+            return false;
+        }
+
+        return target.getType().is(CHANGED_HUMANOIDS);
+    }
+
+    private boolean shouldDropTarget(ChangedEntity mob, LatexMind mind) {
+        LivingEntity currentTarget = mob.getTarget();
+        if (currentTarget instanceof Player playerTarget && !playerTarget.isAlive()) {
+            return true;
+        }
+
+        if (mind.targetId != null && mob.level() instanceof ServerLevel server) {
+            Player rememberedPlayer = server.getPlayerByUUID(mind.targetId);
+            return rememberedPlayer != null && !rememberedPlayer.isAlive();
+        }
+
+        return false;
     }
 
     private void updateStuck(ChangedEntity mob, LatexMind mind) {

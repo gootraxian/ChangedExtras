@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class CustomLatexRendererMixin {
     @Inject(method = "getTextureLocation(Lnet/ltxprogrammer/changed/entity/beast/CustomLatexEntity;)Lnet/minecraft/resources/ResourceLocation;", at = @At("HEAD"), cancellable = true, remap = false)
     private void changedextras$overrideCustomLatexTexture(CustomLatexEntity entity, CallbackInfoReturnable<ResourceLocation> cir) {
-        ResourceLocation override = ArtistTintManager.getTexture(entity.getId());
+        ResourceLocation override = ArtistTintManager.getTexture(entity);
         if (override != null) {
             cir.setReturnValue(override);
         }

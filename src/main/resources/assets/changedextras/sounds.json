@@ -16,5 +16,14 @@
         "stream": false
       }
     ]
+  },
+  "artist_theme": {
+    "category": "record",
+    "sounds": [
+      {
+        "name": "changedextras:artist_theme",
+        "stream": true
+      }
+    ]
   }
 }

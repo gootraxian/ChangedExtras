@@ -6,12 +6,14 @@
   "refmap": "changedextras.refmap.json",
   "mixins": [],
   "client": [
+    "AdvancedHumanoidModelMixin",
     "AdvancedHumanoidRendererMixin",
     "CustomEyesLayerMixin",
     "CustomLatexRendererMixin",
     "ForgeHooksClientMixin",
     "LivingEntityRendererMixin",
     "OnlineServerEntryMixin",
+    "PlayerRendererMixin",
     "ServerDataMixin"
   ],
   "injectors": {

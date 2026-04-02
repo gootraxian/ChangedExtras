@@ -1,51 +1,45 @@
 package com.katt.changedextras.network;
 
+import com.katt.changedextras.common.ArtistAppearanceStorage;
+import com.katt.changedextras.common.ArtistBrushTargetValidator;
 import com.katt.changedextras.item.ArtistBrushItem;
+import net.ltxprogrammer.changed.entity.variant.TransfurVariantInstance;
+import net.ltxprogrammer.changed.process.ProcessTransfur;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.PacketDistributor;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.function.Supplier;
 
 public class SaveArtistBrushPacket {
     private final InteractionHand hand;
     private final String texturePath;
     private final String hexColor;
-    private final int uvX;
-    private final int uvY;
-    private final boolean customUvEnabled;
 
-    public SaveArtistBrushPacket(InteractionHand hand, String texturePath, String hexColor, int uvX, int uvY, boolean customUvEnabled) {
+    public SaveArtistBrushPacket(InteractionHand hand, String texturePath, String hexColor) {
         this.hand = hand;
         this.texturePath = texturePath;
         this.hexColor = hexColor;
-        this.uvX = uvX;
-        this.uvY = uvY;
-        this.customUvEnabled = customUvEnabled;
     }
 
     public static void encode(SaveArtistBrushPacket msg, FriendlyByteBuf buf) {
         buf.writeEnum(msg.hand);
-        buf.writeUtf(msg.texturePath, 1024);
+        buf.writeUtf(msg.texturePath);
         buf.writeUtf(msg.hexColor, 16);
-        buf.writeInt(msg.uvX);
-        buf.writeInt(msg.uvY);
-        buf.writeBoolean(msg.customUvEnabled);
     }
 
     public static SaveArtistBrushPacket decode(FriendlyByteBuf buf) {
         return new SaveArtistBrushPacket(
                 buf.readEnum(InteractionHand.class),
-                buf.readUtf(1024),
-                buf.readUtf(16),
-                buf.readInt(),
-                buf.readInt(),
-                buf.readBoolean()
+                buf.readUtf(),
+                buf.readUtf(16)
         );
     }
 
@@ -65,24 +59,68 @@ public class SaveArtistBrushPacket {
             CompoundTag brushData = ArtistBrushItem.getOrCreateBrushData(stack);
             brushData.putString(ArtistBrushItem.TEXTURE_PATH_TAG, msg.texturePath);
             brushData.putString(ArtistBrushItem.HEX_COLOR_TAG, msg.hexColor);
-            brushData.putInt(ArtistBrushItem.UV_X_TAG, msg.uvX);
-            brushData.putInt(ArtistBrushItem.UV_Y_TAG, msg.uvY);
-            brushData.putBoolean(ArtistBrushItem.CUSTOM_UV_ENABLED_TAG, msg.customUvEnabled);
             brushData.putString(ArtistBrushItem.TARGET_FORM_TAG, ArtistBrushItem.TARGET_FORM_ID);
 
             String targetUuid = brushData.getString(ArtistBrushItem.SELECTED_TARGET_UUID_TAG);
             if (!targetUuid.isBlank()) {
-                Entity target = player.serverLevel().getEntity(java.util.UUID.fromString(targetUuid));
-                if (target != null) {
+                Set<Entity> targets = resolveTargets(player, brushData, targetUuid);
+                if (!targets.isEmpty() && targets.stream().allMatch(ArtistBrushTargetValidator::isAllowedTarget)) {
                     int color = parseColor(msg.hexColor);
-                    ChangedExtrasNetwork.INSTANCE.send(
-                            PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> target),
-                            new SyncArtistColorPacket(target.getId(), color, msg.texturePath, true, msg.uvX, msg.uvY, msg.customUvEnabled)
-                    );
+                    for (Entity target : targets) {
+                        ArtistAppearanceStorage.saveAppearance(target, color, msg.texturePath, 0, 0, false);
+                        ArtistAppearanceStorage.syncAppearance(target);
+                    }
+                } else if (!targets.isEmpty()) {
+                    player.displayClientMessage(Component.translatable("message.changedextras.artist_brush.custom_latex_only"), true);
                 }
             }
         });
         ctx.setPacketHandled(true);
+    }
+
+    private static Set<Entity> resolveTargets(ServerPlayer player, CompoundTag brushData, String targetUuid) {
+        LinkedHashSet<Entity> targets = new LinkedHashSet<>();
+        java.util.UUID uuid;
+        try {
+            uuid = java.util.UUID.fromString(targetUuid);
+        } catch (IllegalArgumentException ignored) {
+            return targets;
+        }
+
+        String targetType = brushData.getString(ArtistBrushItem.SELECTED_TARGET_TYPE_TAG);
+        if ("self".equals(targetType)) {
+            addPlayerTargets(targets, player);
+            return targets;
+        }
+
+        if ("player".equals(targetType)) {
+            ServerPlayer targetPlayer = player.server.getPlayerList().getPlayer(uuid);
+            if (targetPlayer != null) {
+                addPlayerTargets(targets, targetPlayer);
+                return targets;
+            }
+        }
+
+        Entity target = player.serverLevel().getEntity(uuid);
+        if (target != null) {
+            targets.add(target);
+            return targets;
+        }
+
+        ServerPlayer targetPlayer = player.server.getPlayerList().getPlayer(uuid);
+        if (targetPlayer != null) {
+            addPlayerTargets(targets, targetPlayer);
+        }
+
+        return targets;
+    }
+
+    private static void addPlayerTargets(Set<Entity> targets, ServerPlayer player) {
+        targets.add(player);
+        TransfurVariantInstance<?> variant = ProcessTransfur.getPlayerTransfurVariant(player);
+        if (variant != null && variant.getChangedEntity() != null) {
+            targets.add(variant.getChangedEntity());
+        }
     }
 
     private static int parseColor(String hexColor) {

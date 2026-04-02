@@ -1,6 +1,7 @@
 package com.katt.changedextras.entity.beasts;
 
 import com.katt.changedextras.ChangedExtras;
+import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -38,6 +39,7 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
     public static final int ATTACK_POSE_DASH = 2;
     public static final int ATTACK_POSE_COMBO = 3;
     public static final int ATTACK_POSE_TELEPORT = 4;
+    public static final int ATTACK_POSE_RELOAD = 5;
 
     private static final double MIN_DASH_RANGE_SQR = 9.0D;
     private static final double MAX_DASH_RANGE_SQR = 256.0D;
@@ -47,9 +49,13 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
     private static final double PHASE_ONE_DASH_SPEED = 1.25D;
     private static final double PHASE_TWO_DASH_SPEED = 2.15D;
     private static final double PHASE_TWO_HEALTH = 400.0D;
+    private static final int PHASE_ONE_RELOAD_TICKS = 32;
+    private static final int PHASE_TWO_RELOAD_TICKS = 22;
     private static final EntityDataAccessor<Integer> ATTACK_POSE =
             SynchedEntityData.defineId(ArtistEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> ATTACK_POSE_TICKS =
+            SynchedEntityData.defineId(ArtistEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> OPENING_TICKS =
             SynchedEntityData.defineId(ArtistEntity.class, EntityDataSerializers.INT);
 
     private final ServerBossEvent bossEvent = new ServerBossEvent(
@@ -76,6 +82,7 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
         super.defineSynchedData();
         this.entityData.define(ATTACK_POSE, ATTACK_POSE_NONE);
         this.entityData.define(ATTACK_POSE_TICKS, 0);
+        this.entityData.define(OPENING_TICKS, 0);
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -100,6 +107,9 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
 
     @Override
     public boolean doHurtTarget(net.minecraft.world.entity.Entity target) {
+        if (this.getOpening()) {
+            return false;
+        }
         this.triggerAttackPose(ATTACK_POSE_BRUSH, 8);
         boolean hit = super.doHurtTarget(target);
         if (hit && !this.level().isClientSide) {
@@ -134,6 +144,17 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
         if (teleportCooldown > 0) {
             teleportCooldown--;
         }
+        if (this.getOpeningTicks() > 0) {
+            int remainingOpeningTicks = this.getOpeningTicks() - 1;
+            this.entityData.set(OPENING_TICKS, remainingOpeningTicks);
+            this.getNavigation().stop();
+            this.setDeltaMovement(Vec3.ZERO);
+            this.hasImpulse = true;
+            if (remainingOpeningTicks <= 0 && this.getAttackPose() == ATTACK_POSE_RELOAD) {
+                this.entityData.set(ATTACK_POSE, ATTACK_POSE_NONE);
+                dashCooldown = phaseTwo ? 6 : 12;
+            }
+        }
         if (this.getAttackPoseTicks() > 0) {
             int remainingTicks = this.getAttackPoseTicks() - 1;
             this.entityData.set(ATTACK_POSE_TICKS, remainingTicks);
@@ -154,6 +175,11 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
             return;
         }
 
+        if (this.getOpeningTicks() > 0) {
+            this.lookAt(target, 180.0F, 180.0F);
+            return;
+        }
+
         if (phaseTwo) {
             this.applySecondPhasePressure(target);
         }
@@ -166,6 +192,9 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
 
             if (phaseTwo && this.distanceToSqr(target) < 9.0D && this.tickCount % 6 == 0) {
                 this.doHurtTarget(target);
+            }
+            if (dashTicks <= 0) {
+                this.beginPaintReload(phaseTwo ? PHASE_TWO_RELOAD_TICKS : PHASE_ONE_RELOAD_TICKS);
             }
             return;
         }
@@ -210,6 +239,16 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
         this.level().addFreshEntity(cloud);
     }
 
+    private void beginPaintReload(int ticks) {
+        this.entityData.set(OPENING_TICKS, ticks);
+        this.entityData.set(ATTACK_POSE, ATTACK_POSE_RELOAD);
+        this.entityData.set(ATTACK_POSE_TICKS, ticks);
+        this.getNavigation().stop();
+        this.setDeltaMovement(Vec3.ZERO);
+        this.hasImpulse = true;
+        this.playSound(SoundEvents.BUCKET_FILL, 0.8F, 0.75F + this.random.nextFloat() * 0.15F);
+    }
+
     private boolean isPhaseTwo() {
         return secondPhaseTriggered;
     }
@@ -222,6 +261,7 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
         dashTicks = 0;
         comboCooldown = 15;
         teleportCooldown = 20;
+        this.entityData.set(OPENING_TICKS, 0);
         if (target != null) {
             this.teleportAroundTarget(target, 1.6D);
         }
@@ -254,6 +294,7 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
             teleportCooldown = 40 + this.random.nextInt(15);
             dashCooldown = 6;
             this.triggerAttackPose(ATTACK_POSE_TELEPORT, 10);
+            this.beginPaintReload(14);
             this.playSound(SoundEvents.ENDERMAN_TELEPORT, 1.0F, 1.2F);
         }
         return teleported;
@@ -309,6 +350,9 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
+        if (!this.getOpening() && !source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+            return false;
+        }
         if (!secondPhaseTriggered && this.getHealth() - amount <= 0.0F) {
             if (!this.level().isClientSide) {
                 this.beginSecondPhase(this.getTarget());
@@ -322,12 +366,14 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putBoolean("ArtistSecondPhase", secondPhaseTriggered);
+        tag.putInt("ArtistOpeningTicks", this.getOpeningTicks());
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         secondPhaseTriggered = tag.getBoolean("ArtistSecondPhase");
+        this.entityData.set(OPENING_TICKS, tag.getInt("ArtistOpeningTicks"));
         this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(secondPhaseTriggered ? PHASE_TWO_HEALTH : PHASE_ONE_HEALTH);
         if (this.getHealth() > this.getMaxHealth()) {
             this.setHealth(this.getMaxHealth());
@@ -340,6 +386,14 @@ public class ArtistEntity extends AbstractWhiteCatEntity {
 
     public int getAttackPoseTicks() {
         return this.entityData.get(ATTACK_POSE_TICKS);
+    }
+
+    public boolean getOpening() {
+        return this.getOpeningTicks() > 0;
+    }
+
+    public int getOpeningTicks() {
+        return this.entityData.get(OPENING_TICKS);
     }
 
     private void triggerAttackPose(int pose, int ticks) {
