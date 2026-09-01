@@ -1,6 +1,8 @@
 package com.katt.changedextras.common;
 
 import com.katt.changedextras.ChangedExtras;
+import com.katt.changedextras.entity.ModTransfurVariants;
+import com.katt.changedextras.entity.beasts.JammerEntity;
 import com.katt.changedextras.network.ChangedExtrasNetwork;
 import com.katt.changedextras.network.OpenLatexSpawnControlScreenPacket;
 import com.katt.changedextras.network.SyncVisorPacket;
@@ -9,6 +11,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.datafixers.util.Pair;
 import net.ltxprogrammer.changed.entity.robot.Exoskeleton;
 import net.ltxprogrammer.changed.item.ExoskeletonItem;
+import net.ltxprogrammer.changed.process.ProcessTransfur;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
@@ -28,6 +31,7 @@ import java.util.Optional;
 @Mod.EventBusSubscriber(modid = ChangedExtras.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class ChangedExtrasSpawnCommands {
     private static final com.mojang.brigadier.exceptions.SimpleCommandExceptionType NO_EXOSKELETON = new com.mojang.brigadier.exceptions.SimpleCommandExceptionType(Component.literal("Target has no exoskeleton entity or equipped exoskeleton."));
+    private static final com.mojang.brigadier.exceptions.SimpleCommandExceptionType NO_JAMMER = new com.mojang.brigadier.exceptions.SimpleCommandExceptionType(Component.literal("Target is not currently a Jammer."));
 
     private ChangedExtrasSpawnCommands() {
     }
@@ -48,6 +52,21 @@ public final class ChangedExtrasSpawnCommands {
                         .requires(source -> source.hasPermission(2))
                         .then(Commands.literal("spawns")
                                 .executes(context -> openScreen(context.getSource())))
+                        .then(Commands.literal("jammer")
+                                .then(Commands.literal("vip")
+                                        .then(Commands.argument("targets", EntityArgument.players())
+                                                .then(Commands.literal("set")
+                                                        .executes(context -> setJammerVip(
+                                                                context.getSource(),
+                                                                EntityArgument.getPlayers(context, "targets"),
+                                                                true
+                                                        )))
+                                                .then(Commands.literal("remove")
+                                                        .executes(context -> setJammerVip(
+                                                                context.getSource(),
+                                                                EntityArgument.getPlayers(context, "targets"),
+                                                                false
+                                                        ))))))
                         .then(Commands.literal("visorstyle")
                                 .then(Commands.argument("targets", EntityArgument.entities())
                                         .then(Commands.literal("hypnosis")
@@ -74,6 +93,36 @@ public final class ChangedExtrasSpawnCommands {
                 )
         );
         return 1;
+    }
+
+    private static int setJammerVip(CommandSourceStack source, Collection<ServerPlayer> targets, boolean vip) throws CommandSyntaxException {
+        int updated = 0;
+        for (ServerPlayer target : targets) {
+            if (applyJammerVip(target, vip)) {
+                updated++;
+            }
+        }
+
+        if (updated == 0) {
+            throw NO_JAMMER.create();
+        }
+
+        int affected = updated;
+        source.sendSuccess(() -> Component.literal((vip ? "Set" : "Removed") + " Jammer VIP for " + affected + " player(s)."), true);
+        return updated;
+    }
+
+    private static boolean applyJammerVip(ServerPlayer player, boolean vip) {
+        return ProcessTransfur.getPlayerTransfurVariantSafe(player)
+                .filter(instance -> instance.is(ModTransfurVariants.JAMMER.get()))
+                .map(instance -> {
+                    if (instance.getChangedEntity() instanceof JammerEntity jammer) {
+                        jammer.setVip(vip);
+                        return true;
+                    }
+                    return false;
+                })
+                .orElse(false);
     }
 
     private static int setOwnVisorStyle(CommandSourceStack source, ExoskeletonVisorStyle.Pattern pattern) throws CommandSyntaxException {

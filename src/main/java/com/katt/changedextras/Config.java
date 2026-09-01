@@ -21,10 +21,15 @@ public final class Config {
             .comment("How long smart latex creatures remember and pursue a player after being attacked or otherwise acquiring a target. Set to 0 to disable attacker memory.")
             .defineInRange("latexAttackerMemoryTicks", 160, 0, 20 * 60 * 30);
 
+    private static final ForgeConfigSpec.BooleanValue USE_CUSTOM_DEATH_SCREEN = BUILDER
+            .comment("Determines if the custom death screen with the death messages is used")
+            .define("useCustomDeathScreen", false);
+
     static final ForgeConfigSpec SPEC = BUILDER.build();
 
     public static boolean serverDiscoveryEnabled = true;
     public static boolean smartLatexAiEnabled = false;
+    public static boolean useCustomDeathScreen = false;
     public static int latexAttackerMemoryTicks = 160;
 
     private Config() {
@@ -39,5 +44,6 @@ public final class Config {
         serverDiscoveryEnabled = SERVER_DISCOVERY_ENABLED.get();
         smartLatexAiEnabled = SMART_LATEX_AI_ENABLED.get();
         latexAttackerMemoryTicks = LATEX_ATTACKER_MEMORY_TICKS.get();
+        useCustomDeathScreen = USE_CUSTOM_DEATH_SCREEN.get();
     }
 }

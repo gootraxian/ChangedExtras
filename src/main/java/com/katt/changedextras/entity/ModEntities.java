@@ -4,6 +4,7 @@ import com.katt.changedextras.ChangedExtras;
 import com.katt.changedextras.entity.beasts.ArtistEntity;
 import com.katt.changedextras.entity.beasts.ConeKatFemaleEntity;
 import com.katt.changedextras.entity.beasts.ConeKatMaleEntity;
+import com.katt.changedextras.entity.beasts.JammerEntity;
 import com.katt.changedextras.entity.beasts.KattEntity;
 import com.katt.changedextras.entity.beasts.WhiteCatEntity;
 import net.minecraft.world.entity.EntityType;
@@ -39,6 +40,12 @@ public class ModEntities {
                     .clientTrackingRange(10)
                     .sized(0.7F, 1.93F)
                     .build("katt"));
+
+    public static final RegistryObject<EntityType<JammerEntity>> JAMMER = REGISTRY.register("jammer",
+            () -> EntityType.Builder.of(JammerEntity::new, MobCategory.MONSTER)
+                    .clientTrackingRange(10)
+                    .sized(0.7F, 1.93F)
+                    .build("jammer"));
 
     public static final RegistryObject<EntityType<ArtistEntity>> ARTIST = REGISTRY.register("artist",
             () -> EntityType.Builder.of(ArtistEntity::new, MobCategory.MONSTER)

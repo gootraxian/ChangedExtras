@@ -72,6 +72,10 @@ public class KattEntityModel extends AdvancedHumanoidModel<KattEntity> {
         // --- HEAD (Neck is now here) ---
         PartDefinition Head = partdefinition.addOrReplaceChild("Head", CubeListBuilder.create().texOffs(0, 16).addBox(-4.0F, -8.0F, -4.0F, 8.0F, 8.0F, 8.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, -0.5F, 0.0F));
 
+        Head.addOrReplaceChild("Fluff_r1", CubeListBuilder.create().texOffs(88, 23).addBox(-7.0F, -4.0F, -4.0F, 4.0F, 4.0F, 0.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(7.0F, -5.0F, -4.0F, 0.0F, 0.6545F, 0.0F));
+        Head.addOrReplaceChild("Fluff_r2", CubeListBuilder.create().texOffs(88, 23).addBox(-7.0F, -4.0F, -4.0F, 4.0F, 4.0F, 0.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(6.0F, 0.0F, 4.0F, 0.0F, -0.6109F, 0.0F));
+        Head.addOrReplaceChild("Fluff_r3", CubeListBuilder.create().texOffs(88, 28).addBox(-7.0F, -4.0F, -4.0F, 4.0F, 4.0F, 0.0F, new CubeDeformation(0.0F)), PartPose.offsetAndRotation(2.0F, 0.0F, -2.0F, 0.0F, 0.6109F, 0.0F));
+
         Head.addOrReplaceChild("Neck", CubeListBuilder.create().texOffs(56, 51).addBox(-5.0F, -28.0F, -5.0F, 10.0F, 3.0F, 10.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, 26.0F, 0.0F));
 
         PartDefinition RightEar = Head.addOrReplaceChild("RightEar", CubeListBuilder.create(), PartPose.offset(-3.0F, -7.5F, 0.0F));
@@ -86,9 +90,7 @@ public class KattEntityModel extends AdvancedHumanoidModel<KattEntity> {
                 .texOffs(32, 24).addBox(-1.1F, -2.3F, -1.0F, 2.0F, 1.0F, 1.0F, new CubeDeformation(0.05F))
                 .texOffs(0, 32).addBox(-1.1F, -3.1F, -1.0F, 1.0F, 1.0F, 1.0F, new CubeDeformation(0.05F)), PartPose.offsetAndRotation(-0.5F, -1.25F, 0.0F, -0.1309F, -0.5236F, 0.3491F));
 
-        PartDefinition Hair = Head.addOrReplaceChild("Hair", CubeListBuilder.create(), PartPose.offset(2.0F, 0.0F, 1.0F));
-        Hair.addOrReplaceChild("OuterHairLayer_r1", CubeListBuilder.create().texOffs(78, 32).addBox(-4.0F, -8.0F, -6.0F, 3.0F, 1.0F, 2.0F, new CubeDeformation(0.3F)), PartPose.offsetAndRotation(0.0F, -1.0F, 2.0F, 0.2618F, 0.0F, 0.0F));
-        Hair.addOrReplaceChild("InnerHairLayer_r1", CubeListBuilder.create().texOffs(77, 37).addBox(-2.0F, -9.0F, -7.0F, 2.0F, 1.0F, 3.0F, new CubeDeformation(0.2F)), PartPose.offsetAndRotation(0.0F, 1.0F, 0.0F, 0.0F, 0.1309F, 0.0F));
+        Head.addOrReplaceChild("Hair", CubeListBuilder.create(), PartPose.offset(2.0F, 0.0F, 1.0F));
 
         // --- TORSO & TAIL ---
         PartDefinition Torso = partdefinition.addOrReplaceChild("Torso", CubeListBuilder.create().texOffs(28, 28).addBox(-4.0F, 0.0F, -2.0F, 8.0F, 12.0F, 4.0F, new CubeDeformation(0.0F)), PartPose.offset(0.0F, -0.5F, 0.0F));

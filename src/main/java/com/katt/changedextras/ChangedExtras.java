@@ -1,6 +1,8 @@
 package com.katt.changedextras;
 
 import com.katt.changedextras.client.renderer.accessory.DyeableClothingRenderer;
+import com.katt.changedextras.client.renderer.accessory.JammerHeadphonesRenderer;
+import com.katt.changedextras.block.JammerHeadphonesBlock;
 import com.katt.changedextras.client.ClientEventHandler;
 import com.katt.changedextras.client.particle.JackpotSmokeParticleProvider;
 import com.katt.changedextras.common.ChangedExtrasGameRules;
@@ -16,6 +18,7 @@ import com.katt.changedextras.init.ChangedExtrasStructurePieceTypes;
 import com.katt.changedextras.init.ChangedExtrasStructureTypes;
 import com.katt.changedextras.item.ArtistBrushItem;
 import com.katt.changedextras.item.ArtistSketchItem;
+import com.katt.changedextras.item.JammerHeadphonesItem;
 import com.katt.changedextras.item.LongSleeveShirt;
 import com.katt.changedextras.item.PaleTestItem;
 import com.katt.changedextras.item.SterileSwabItem;
@@ -89,6 +92,11 @@ public class ChangedExtras {
             BLOCKS.register("icecream_block", () -> new Block(BlockBehaviour.Properties.of().mapColor(MapColor.STONE)));
     public static final RegistryObject<Item> ICECREAM_BLOCK_ITEM =
             ITEMS.register("icecream_block", () -> new BlockItem(ICECREAM_BLOCK.get(), new Item.Properties()));
+    public static final RegistryObject<Block> JAMMER_HEADPHONES_BLOCK =
+            BLOCKS.register("jammer_headphones", () -> new JammerHeadphonesBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_BLACK)
+                    .noOcclusion()
+                    .strength(0.4F)));
     public static final RegistryObject<Item> ICECREAM_ITEM =
             ITEMS.register("icecream", () -> new Item(new Item.Properties().food(new FoodProperties.Builder()
                     .alwaysEat().nutrition(5).saturationMod(0.6f).build())));
@@ -136,6 +144,18 @@ public class ChangedExtras {
                     () -> new ArtistSketchItem(new Item.Properties().stacksTo(1).rarity(Rarity.EPIC)));
     public static final RegistryObject<Item> LONG_SLEEVE_SHIRT = ITEMS.register("long_sleeve_shirt",
             () -> new LongSleeveShirt());
+    public static final RegistryObject<Item> JAMMER_HEADPHONES = ITEMS.register("jammer_headphones",
+            () -> new JammerHeadphonesItem(new Item.Properties().stacksTo(1).rarity(Rarity.RARE)));
+
+    public static final RegistryObject<ForgeSpawnEggItem> KATT_SPAWN_EGG =
+            ITEMS.register("katt_spawn_egg",
+                    () -> new ForgeSpawnEggItem(ModEntities.KATT, 0xFFFFFF, 0xF0F0F0, new Item.Properties()));
+    public static final RegistryObject<ForgeSpawnEggItem> JAMMER_SPAWN_EGG =
+            ITEMS.register("jammer_spawn_egg",
+                    () -> new ForgeSpawnEggItem(ModEntities.JAMMER, 0x36323e, 0x797881, new Item.Properties()));
+    public static final RegistryObject<ForgeSpawnEggItem> ARTIST_MOB_SPAWN_EGG =
+            ITEMS.register("artist_spawn_egg",
+                    () -> new ForgeSpawnEggItem(ModEntities.ARTIST, 0x5C6BC0, 0xF5F5F5, new Item.Properties()));
 
     public static final RegistryObject<CreativeModeTab> SYRINGES_TAB =
             CREATIVE_MODE_TABS.register("changedextras_syringes", () -> CreativeModeTab.builder()
@@ -148,6 +168,9 @@ public class ChangedExtras {
                         output.accept(createVariantSyringeStack(WHITE_CAT_SYRINGE.get(), "white_cat"));
                         output.accept(createVariantSyringeStack(ARTIST_SYRINGE.get(), "artist"));
                         output.accept(createVariantSyringeStack(KATT_SYRINGE.get(), "katt"));
+                        output.accept(KATT_SPAWN_EGG.get());
+                        output.accept(JAMMER_SPAWN_EGG.get());
+                        output.accept(ARTIST_MOB_SPAWN_EGG.get());
                     })
                     .build());
 
@@ -161,6 +184,7 @@ public class ChangedExtras {
                         output.accept(CONEKAT_FEMALE_SPAWN_EGG.get());
                         output.accept(WHITE_CAT_SPAWN_EGG.get());
                         output.accept(ARTIST_SPAWN_EGG.get());
+                        output.accept(JAMMER_HEADPHONES.get());
                     })
                     .build());
 
@@ -204,6 +228,7 @@ public class ChangedExtras {
     private void addCreative(BuildCreativeModeTabContentsEvent event) {
         if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS) {
             event.accept(ICECREAM_BLOCK_ITEM.get());
+            event.accept(JAMMER_HEADPHONES.get());
         } else if (event.getTabKey() == CreativeModeTabs.FOOD_AND_DRINKS) {
             event.accept(ICECREAM_ITEM.get());
         } else if (event.getTabKey() == CreativeModeTabs.INGREDIENTS) {
@@ -332,7 +357,10 @@ public class ChangedExtras {
                     ChangedExtras.LONG_SLEEVE_SHIRT.get(),
                     SimpleClothingRenderer.of(ArmorModel.CLOTHING_INNER, EquipmentSlot.CHEST)
             );
-
+            AccessoryLayer.registerRenderer(
+                    ChangedExtras.JAMMER_HEADPHONES.get(),
+                    JammerHeadphonesRenderer::new
+            );
             event.enqueueWork(() -> ItemProperties.register(
                     ChangedExtras.PALE_TEST.get(),
                     ResourceLocation.fromNamespaceAndPath(MODID, "positive"),

@@ -1,5 +1,6 @@
 package com.katt.changedextras.client;
 
+import com.katt.changedextras.ChangedExtras;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.ltxprogrammer.changed.entity.ChangedEntity;
 import net.ltxprogrammer.changed.client.renderer.CustomLatexRenderer;
@@ -14,6 +15,7 @@ import net.minecraft.world.entity.player.Player;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -75,13 +77,18 @@ public final class ArtistTintManager {
             return loadResourceTexture(CustomLatexRenderer.DEFAULT_SKIN_LOCATION, data);
         }
 
-        Path filePath = Path.of(path);
-        if (Files.exists(filePath)) {
+        Path filePath = tryResolveExternalPath(path);
+        if (filePath != null && Files.exists(filePath)) {
             return loadExternalTexture(filePath, data);
         }
 
         ResourceLocation resourceLocation = ResourceLocation.tryParse(path);
-        return resourceLocation != null ? loadResourceTexture(resourceLocation, data) : MissingTextureAtlasSprite.getLocation();
+        if (resourceLocation != null) {
+            return loadResourceTexture(resourceLocation, data);
+        }
+
+        ChangedExtras.LOGGER.warn("Artist brush texture path '{}' is neither a readable file nor a valid resource location; using the default custom latex texture instead", path);
+        return loadResourceTexture(CustomLatexRenderer.DEFAULT_SKIN_LOCATION, data);
     }
 
     private static AppearanceData getAppearanceData(Entity entity) {
@@ -136,8 +143,9 @@ public final class ArtistTintManager {
             CachedTexture created = new CachedTexture(location, dynamicTexture);
             TEXTURE_CACHE.put(cacheKey, created);
             return location;
-        } catch (IOException ignored) {
-            return MissingTextureAtlasSprite.getLocation();
+        } catch (IOException exception) {
+            ChangedExtras.LOGGER.warn("Failed to load artist brush texture from file '{}'; using the default custom latex texture instead", normalized, exception);
+            return loadResourceTexture(CustomLatexRenderer.DEFAULT_SKIN_LOCATION, new AppearanceData(data.color(), "", data.uvX(), data.uvY(), data.customUvEnabled()));
         }
     }
 
@@ -160,8 +168,19 @@ public final class ArtistTintManager {
             CachedTexture created = new CachedTexture(dynamicLocation, dynamicTexture);
             TEXTURE_CACHE.put(cacheKey, created);
             return dynamicLocation;
-        } catch (IOException ignored) {
-            return MissingTextureAtlasSprite.getLocation();
+        } catch (IOException exception) {
+            ChangedExtras.LOGGER.warn("Failed to load artist brush texture resource '{}'; using the default custom latex texture instead", location, exception);
+            return location.equals(CustomLatexRenderer.DEFAULT_SKIN_LOCATION)
+                    ? MissingTextureAtlasSprite.getLocation()
+                    : loadResourceTexture(CustomLatexRenderer.DEFAULT_SKIN_LOCATION, new AppearanceData(data.color(), "", data.uvX(), data.uvY(), data.customUvEnabled()));
+        }
+    }
+
+    private static Path tryResolveExternalPath(String path) {
+        try {
+            return Path.of(path);
+        } catch (InvalidPathException ignored) {
+            return null;
         }
     }
 

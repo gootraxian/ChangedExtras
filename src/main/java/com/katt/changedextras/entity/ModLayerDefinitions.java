@@ -4,6 +4,7 @@ import com.katt.changedextras.ChangedExtras;
 import com.katt.changedextras.entity.model.ArtistEntityModel;
 import com.katt.changedextras.entity.model.ConeKatFemaleEntityModel;
 import com.katt.changedextras.entity.model.ConeKatMaleEntityModel;
+import com.katt.changedextras.entity.model.JammerEntityModel;
 import com.katt.changedextras.entity.model.KattEntityModel;
 import com.katt.changedextras.entity.model.WhiteCatEntityModel;
 import net.minecraftforge.api.distmarker.Dist;
@@ -20,5 +21,7 @@ public class ModLayerDefinitions {
         event.registerLayerDefinition(WhiteCatEntityModel.LAYER_LOCATION, WhiteCatEntityModel::createBodyLayer);
         event.registerLayerDefinition(ArtistEntityModel.LAYER_LOCATION, ArtistEntityModel::createBodyLayer);
         event.registerLayerDefinition(KattEntityModel.LAYER_LOCATION, KattEntityModel::createBodyLayer);
+        event.registerLayerDefinition(JammerEntityModel.LAYER_LOCATION, JammerEntityModel::createBodyLayer);
+        event.registerLayerDefinition(JammerEntityModel.OUTLINE_LAYER_LOCATION, JammerEntityModel::createOutlineLayer);
     }
 }

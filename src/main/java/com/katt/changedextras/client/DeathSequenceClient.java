@@ -11,6 +11,7 @@ import net.minecraftforge.client.event.ScreenEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import com.katt.changedextras.Config;
 
 @Mod.EventBusSubscriber(modid = ChangedExtras.MODID, value = Dist.CLIENT)
 public final class DeathSequenceClient {
@@ -41,6 +42,10 @@ public final class DeathSequenceClient {
     public static void onOpenScreen(ScreenEvent.Opening event) {
         if (!(event.getNewScreen() instanceof DeathScreen) || allowNextVanillaDeathScreen) {
             allowNextVanillaDeathScreen = false;
+            return;
+        }
+
+        if (!Config.useCustomDeathScreen) {
             return;
         }
 

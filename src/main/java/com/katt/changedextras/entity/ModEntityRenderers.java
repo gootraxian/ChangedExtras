@@ -26,5 +26,7 @@ public class ModEntityRenderers {
                 ArtistRenderer::new);
         registerHumanoid(event, ModEntities.KATT.get(),
                 KattRenderer::new);
+        registerHumanoid(event, ModEntities.JAMMER.get(),
+                JammerRenderer::new);
     }
 }

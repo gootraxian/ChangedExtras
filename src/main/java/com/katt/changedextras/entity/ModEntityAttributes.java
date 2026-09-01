@@ -18,6 +18,7 @@ public final class ModEntityAttributes {
         event.put(ModEntities.CONEKAT_MALE.get(), AbstractConeKatEntity.createAttributes().build());
         event.put(ModEntities.CONEKAT_FEMALE.get(), AbstractConeKatEntity.createAttributes().build());
         event.put(ModEntities.WHITE_CAT.get(), AbstractWhiteCatEntity.createAttributes().build());
+        event.put(ModEntities.JAMMER.get(), AbstractWhiteCatEntity.createAttributes().build());
         event.put(ModEntities.ARTIST.get(), ArtistEntity.createAttributes().build());
 
         // Fixed the builder chain here

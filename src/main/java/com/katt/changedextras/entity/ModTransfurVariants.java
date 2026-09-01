@@ -3,6 +3,7 @@ package com.katt.changedextras.entity;
 import com.katt.changedextras.ChangedExtras;
 import com.katt.changedextras.entity.beasts.ConeKatFemaleEntity;
 import com.katt.changedextras.entity.beasts.ConeKatMaleEntity;
+import com.katt.changedextras.entity.beasts.JammerEntity;
 import com.katt.changedextras.entity.beasts.KattEntity;
 import com.katt.changedextras.entity.beasts.ArtistEntity;
 import com.katt.changedextras.entity.beasts.WhiteCatEntity;
@@ -64,6 +65,15 @@ public class ModTransfurVariants {
                             .reducedFall(true)
                             .extraJumps(2)
 
+                            .build());
+
+    public static final RegistryObject<TransfurVariant<JammerEntity>> JAMMER =
+            REGISTRY.register("jammer",
+                    () -> TransfurVariant.Builder.of(ModEntities.JAMMER)
+                            .nightVision()
+                            .addAbility(ChangedAbilities.GRAB_ENTITY_ABILITY)
+                            .addAbility(ChangedAbilities.TOGGLE_NIGHT_VISION)
+                            .addAbility(ChangedExtrasAbilities.CLAWS)
                             .build());
 
     public static final RegistryObject<TransfurVariant<ArtistEntity>> ARTIST =

@@ -28,6 +28,7 @@
   "entity.changedextras.katt": "Katt",
   "entity.changedextras.white_cat": "White Cat",
   "entity.changedextras.artist": "The Artist",
+  "entity.changedextras.jammer": "Jammer",
 
   "4 | Type": "Special syringes",
   "katt_syringe": "Katt's Syringe of Pain and Suffering",
@@ -51,6 +52,7 @@
   "item.changedextras.sketch": "Masterpiece Sketch",
   "item.changedextras.icecream": "Ice Cream",
   "item.changedextras.long_sleeve_shirt": "Long-Sleeved Shirt",
+  "item.changedextras.jammer_headphones": "Jammer Headphones",
   "item.changedextras.sterile_swab": "Sterile Swab",
   "item.changedextras.used_swab": "Used Swab",
   "item.changedextras.vial": "Vial",
@@ -60,6 +62,7 @@
 
   "6 | Type": "Blocks",
   "block.changedextras.icecream_block": "Ice Cream Block",
+  "block.changedextras.jammer_headphones": "Jammer Headphones",
   "painting.changedextras.the_eye.title": "Glowing eyes",
   "painting.changedextras.the_eye.author": "Katt",
 

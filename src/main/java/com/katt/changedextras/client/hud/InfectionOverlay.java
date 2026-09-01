@@ -1,9 +1,11 @@
 package com.katt.changedextras.client.hud;
 
+import com.katt.changedextras.ChangedExtras;
 import net.ltxprogrammer.changed.entity.variant.TransfurVariantInstance;
 import net.ltxprogrammer.changed.process.ProcessTransfur;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RenderGuiOverlayEvent;
@@ -15,6 +17,10 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = com.katt.changedextras.ChangedExtras.MODID, value = Dist.CLIENT)
 public class InfectionOverlay {
     private static final float FINAL_STAGE_START = 0.9F;
+    private static final ResourceLocation CONEKAT_MALE =
+            ResourceLocation.fromNamespaceAndPath(ChangedExtras.MODID, "conekat_male");
+    private static final ResourceLocation CONEKAT_FEMALE =
+            ResourceLocation.fromNamespaceAndPath(ChangedExtras.MODID, "conekat_female");
 
     @SubscribeEvent
     public static void onRenderOverlay(RenderGuiOverlayEvent.Post event) {
@@ -36,7 +42,7 @@ public class InfectionOverlay {
         if (mc.player == null || mc.level == null) return;
 
         TransfurVariantInstance<?> variant = ProcessTransfur.getPlayerTransfurVariant(mc.player);
-        if (variant != null) return;
+        if (variant != null && isConeKat(variant)) return;
 
         float progress = ProcessTransfur.getPlayerTransfurProgress(mc.player);
         float tolerance = Math.max(0.0001F, (float) ProcessTransfur.getEntityTransfurTolerance(mc.player));
@@ -49,5 +55,10 @@ public class InfectionOverlay {
         int alpha = Math.max(0, Math.min(255, Math.round(fadeProgress * 255.0F)));
         int color = (alpha << 24) | 0x00FFFFFF;
         guiGraphics.fill(0, 0, w, h, color);
+    }
+
+    private static boolean isConeKat(TransfurVariantInstance<?> variant) {
+        ResourceLocation formId = variant.getFormId();
+        return CONEKAT_MALE.equals(formId) || CONEKAT_FEMALE.equals(formId);
     }
 }

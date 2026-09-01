@@ -24,6 +24,7 @@ import org.lwjgl.util.tinyfd.TinyFileDialogs;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
 public class ArtistBrushScreen extends Screen {
@@ -162,8 +163,10 @@ public class ArtistBrushScreen extends Screen {
 
     private PreviewTextureData resolvePreviewTexture() {
         String path = texturePath.getValue().trim();
+        String normalizedHex = normalizeHex(hexColor.getValue().trim());
+        int tintColor = parseColor(normalizedHex);
         if (path.isEmpty()) {
-            return resolveResourceTexture(CustomLatexRenderer.DEFAULT_SKIN_LOCATION);
+            return resolveResourceTexture(CustomLatexRenderer.DEFAULT_SKIN_LOCATION, tintColor);
         }
         if (path.equals(cachedPreviewPath) && cachedPreviewData != null) {
             return cachedPreviewData;
@@ -171,31 +174,48 @@ public class ArtistBrushScreen extends Screen {
 
         disposeCachedPreview();
 
-        Path filePath = Path.of(path);
-        cachedPreviewData = Files.exists(filePath) ? resolveExternalTexture(filePath) : resolveResourceTexture(ResourceLocation.tryParse(path));
+        Path filePath = tryResolveExternalPath(path);
+        if (filePath != null && Files.exists(filePath)) {
+            cachedPreviewData = resolveExternalTexture(filePath, tintColor);
+        } else {
+            ResourceLocation resourceLocation = ResourceLocation.tryParse(path);
+            cachedPreviewData = resourceLocation != null
+                    ? resolveResourceTexture(resourceLocation, tintColor)
+                    : resolveResourceTexture(CustomLatexRenderer.DEFAULT_SKIN_LOCATION, tintColor);
+        }
         cachedPreviewPath = path;
         return cachedPreviewData;
     }
 
-    private PreviewTextureData resolveExternalTexture(Path filePath) {
+    private PreviewTextureData resolveExternalTexture(Path filePath, int tintColor) {
         try (var stream = Files.newInputStream(filePath)) {
             NativeImage image = NativeImage.read(stream);
-            DynamicTexture dynamicTexture = new DynamicTexture(image);
+            int width = image.getWidth();
+            int height = image.getHeight();
+            DynamicTexture dynamicTexture = new DynamicTexture(applyTint(image, tintColor));
             String normalized = filePath.toAbsolutePath().normalize().toString();
             ResourceLocation texture = this.minecraft.getTextureManager().register("artist_brush_preview/" + Math.abs(normalized.hashCode()), dynamicTexture);
-            return PreviewTextureData.of(texture, image.getWidth(), image.getHeight(), dynamicTexture);
+            return PreviewTextureData.of(texture, width, height, dynamicTexture);
         } catch (IOException ignored) {
             return PreviewTextureData.missing();
         }
     }
 
-    private PreviewTextureData resolveResourceTexture(ResourceLocation location) {
+    private PreviewTextureData resolveResourceTexture(ResourceLocation location, int tintColor) {
         if (location == null) {
             return PreviewTextureData.missing();
         }
         try (var stream = this.minecraft.getResourceManager().open(location)) {
             NativeImage image = NativeImage.read(stream);
-            return PreviewTextureData.of(location, image.getWidth(), image.getHeight(), null);
+            int width = image.getWidth();
+            int height = image.getHeight();
+            if (tintColor == 0xFFFFFF) {
+                return PreviewTextureData.of(location, width, height, null);
+            }
+
+            DynamicTexture dynamicTexture = new DynamicTexture(applyTint(image, tintColor));
+            ResourceLocation dynamicLocation = this.minecraft.getTextureManager().register("artist_brush_preview/" + Math.abs((location.toString() + "#" + tintColor).hashCode()), dynamicTexture);
+            return PreviewTextureData.of(dynamicLocation, width, height, dynamicTexture);
         } catch (IOException ignored) {
             return PreviewTextureData.missing();
         }
@@ -241,6 +261,54 @@ public class ArtistBrushScreen extends Screen {
             return "#FFFFFF";
         }
         return value.startsWith("#") ? value.toUpperCase() : ("#" + value.toUpperCase());
+    }
+
+    private static int parseColor(String hexColor) {
+        String normalized = hexColor.startsWith("#") ? hexColor.substring(1) : hexColor;
+        try {
+            return Integer.parseInt(normalized, 16);
+        } catch (NumberFormatException ignored) {
+            return 0xFFFFFF;
+        }
+    }
+
+    private static Path tryResolveExternalPath(String path) {
+        try {
+            return Path.of(path);
+        } catch (InvalidPathException ignored) {
+            return null;
+        }
+    }
+
+    private static NativeImage applyTint(NativeImage source, int color) {
+        if (color == 0xFFFFFF) {
+            return source;
+        }
+
+        int width = source.getWidth();
+        int height = source.getHeight();
+        NativeImage tinted = new NativeImage(width, height, true);
+        float redMultiplier = ((color >> 16) & 0xFF) / 255.0F;
+        float greenMultiplier = ((color >> 8) & 0xFF) / 255.0F;
+        float blueMultiplier = (color & 0xFF) / 255.0F;
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int rgba = source.getPixelRGBA(x, y);
+                int alpha = (rgba >> 24) & 0xFF;
+                int blue = (rgba >> 16) & 0xFF;
+                int green = (rgba >> 8) & 0xFF;
+                int red = rgba & 0xFF;
+                int tintedRed = Math.min(255, Math.round(red * redMultiplier));
+                int tintedGreen = Math.min(255, Math.round(green * greenMultiplier));
+                int tintedBlue = Math.min(255, Math.round(blue * blueMultiplier));
+                int tintedRgba = (alpha << 24) | (tintedBlue << 16) | (tintedGreen << 8) | tintedRed;
+                tinted.setPixelRGBA(x, y, tintedRgba);
+            }
+        }
+
+        source.close();
+        return tinted;
     }
 
     private void disposeCachedPreview() {
