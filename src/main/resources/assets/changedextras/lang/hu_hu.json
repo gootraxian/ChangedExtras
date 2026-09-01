@@ -28,6 +28,7 @@
   "entity.changedextras.katt": "Katt",
   "entity.changedextras.white_cat": "Fehér macska",
   "entity.changedextras.artist": "A művész",
+  "entity.changedextras.jammer": "Zavaró",
   
   "4 | Type": "Speciális fecskendők",
   "katt_syringe": "Katt fájdalom és szenvedés fecskendője",
@@ -51,6 +52,7 @@
   "item.changedextras.sketch": "Mestermű vázlat",
   "item.changedextras.icecream": "Fagylalt",
   "item.changedextras.long_sleeve_shirt": "Hosszú ujjú poló",
+  "item.changedextras.jammer_headphones": "Zavaró fejhallgatója",
   "item.changedextras.sterile_swab": "Steril mintavevő pálca",
   "item.changedextras.used_swab": "Használt mintavevő pálca",
   "item.changedextras.vial": "Fiola",
@@ -60,6 +62,7 @@
 
   "6 | Type": "Blokkok",
   "block.changedextras.icecream_block": "Fagylaltblokk",
+  "block.changedextras.jammer_headphones": "Zavaró fejhallgatója",
   "painting.changedextras.the_eye.title": "Glowing eyes",
   "painting.changedextras.the_eye.author": "Katt",
 
