@@ -23,10 +23,12 @@ public class LatexDebugSnapshotPacket {
         buf.writeVarInt(msg.snapshots.size());
         for (LatexDebugSnapshot snapshot : msg.snapshots) {
             buf.writeVarInt(snapshot.entityId());
+            buf.writeUtf(snapshot.stateName(), 32);
             writeNullablePos(buf, snapshot.targetPos());
             writeNullablePos(buf, snapshot.lastSeenPos());
             writeNullablePos(buf, snapshot.buildPos());
             writeNullablePos(buf, snapshot.breakPos());
+            writeNullablePos(buf, snapshot.parkourPos());
             buf.writeBoolean(snapshot.requiresBreak());
             buf.writeVarInt(snapshot.imaginedBuildPath().size());
             for (BlockPos pos : snapshot.imaginedBuildPath()) {
@@ -44,10 +46,12 @@ public class LatexDebugSnapshotPacket {
         List<LatexDebugSnapshot> snapshots = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
             int entityId = buf.readVarInt();
+            String stateName = buf.readUtf(32);
             BlockPos targetPos = readNullablePos(buf);
             BlockPos lastSeenPos = readNullablePos(buf);
             BlockPos buildPos = readNullablePos(buf);
             BlockPos breakPos = readNullablePos(buf);
+            BlockPos parkourPos = readNullablePos(buf);
             boolean requiresBreak = buf.readBoolean();
             int imaginedCount = buf.readVarInt();
             List<BlockPos> imagined = new ArrayList<>(imaginedCount);
@@ -59,7 +63,7 @@ public class LatexDebugSnapshotPacket {
             for (int nodeIndex = 0; nodeIndex < nodeCount; nodeIndex++) {
                 nodes.add(buf.readBlockPos());
             }
-            snapshots.add(new LatexDebugSnapshot(entityId, targetPos, lastSeenPos, buildPos, breakPos, requiresBreak, imagined, nodes));
+            snapshots.add(new LatexDebugSnapshot(entityId, stateName, targetPos, lastSeenPos, buildPos, breakPos, parkourPos, requiresBreak, imagined, nodes));
         }
         return new LatexDebugSnapshotPacket(snapshots);
     }

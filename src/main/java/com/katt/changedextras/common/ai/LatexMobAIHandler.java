@@ -1,11 +1,10 @@
 package com.katt.changedextras.common.ai;
 
 import com.katt.changedextras.ChangedExtras;
-import net.minecraft.world.entity.player.Player;
 import com.katt.changedextras.common.ChangedExtrasGameRules;
 import com.katt.changedextras.entity.beasts.ArtistEntity;
 import net.ltxprogrammer.changed.entity.ChangedEntity;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
@@ -16,23 +15,24 @@ import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.player.Player;
-import net.minecraftforge.event.AttachCapabilitiesEvent;
+import net.minecraft.world.level.pathfinder.BlockPathTypes;
 import net.minecraftforge.event.entity.EntityJoinLevelEvent;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
-import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.Set;
 import java.util.WeakHashMap;
 
 @Mod.EventBusSubscriber(modid = ChangedExtras.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class LatexMobAIHandler {
-    private static final double MIN_GLOBAL_LATEX_MOVE_SPEED = 0.27D;
+    // Standard player-calibrated base movement speed, nudged up (was 0.23D, then 0.28D, then 0.35D)
+    private static final double LATEX_PLAYER_BASE_SPEED = 0.38D;
 
     private static final Set<ChangedEntity> INSTALLED_MOBS =
             Collections.newSetFromMap(new WeakHashMap<>());
@@ -58,38 +58,30 @@ public final class LatexMobAIHandler {
 
     @SubscribeEvent
     public static void onLivingTick(LivingEvent.LivingTickEvent event) {
+        if (event.getEntity().level().isClientSide()) return;
         if (!(event.getEntity() instanceof ChangedEntity mob)) return;
-        if (mob.level().isClientSide()) return;
-        if (mob instanceof ArtistEntity artist) {
-            if (artist.isNoAi()) {
-                artist.setNoAi(false);
+        if (mob instanceof ArtistEntity) return;
+
+        boolean smartEnabled = ChangedExtrasGameRules.isSmartLatexAiEnabled(mob.level().getGameRules());
+        if (!smartEnabled) {
+            if (INSTALLED_MOBS.contains(mob)) {
+                INSTALLED_MOBS.remove(mob);
+                installDefaultGoals(mob);
             }
             return;
         }
-        boolean smartAiEnabled = ChangedExtrasGameRules.isSmartLatexAiEnabled(mob.level().getGameRules());
-        if (smartAiEnabled) {
-            if (LatexAiUtil.isSmartAiExcluded(mob)) {
-                INSTALLED_MOBS.remove(mob);
-                LatexMindStore.forget(mob);
-                return;
-            }
 
+        if (!INSTALLED_MOBS.contains(mob)) {
             ensureSmartAiInstalled(mob);
-            LatexMind mind = LatexMindStore.get(mob);
-            mind.tick(mob);
-        } else {
-            if (INSTALLED_MOBS.contains(mob)) {
-                INSTALLED_MOBS.remove(mob);
-                LatexMindStore.forget(mob);
-                installDefaultGoals(mob);
-                mob.setCanPickUpLoot(false);
-            }
         }
+
+        LatexMind mind = LatexMindStore.get(mob);
+        mind.tick(mob);
     }
 
     @SubscribeEvent
-    public static void onEntityLeaveLevel(EntityLeaveLevelEvent event) {
-        if (event.getEntity() instanceof ChangedEntity mob && !event.getLevel().isClientSide()) {
+    public static void onEntityLeave(EntityLeaveLevelEvent event) {
+        if (event.getEntity() instanceof ChangedEntity mob) {
             INSTALLED_MOBS.remove(mob);
             LatexMindStore.forget(mob);
         }
@@ -97,34 +89,41 @@ public final class LatexMobAIHandler {
 
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
-        if (event.getEntity() instanceof ChangedEntity mob && !mob.level().isClientSide()) {
-            INSTALLED_MOBS.remove(mob);
-            LatexMindStore.forget(mob);
+        if (event.getEntity() instanceof ChangedEntity victim) {
+            INSTALLED_MOBS.remove(victim);
+            LatexMindStore.forget(victim);
+
+            if (event.getSource().getEntity() instanceof LivingEntity killer) {
+                alertNearbyAlliesOfMurder(victim, killer);
+            }
         }
     }
 
-    @SubscribeEvent
-    public static void attachCapabilities(AttachCapabilitiesEvent<net.minecraft.world.entity.Entity> event) {
-        if (!(event.getObject() instanceof ChangedEntity)) return;
-
-        event.addCapability(
-                ResourceLocation.fromNamespaceAndPath(ChangedExtras.MODID, "latex_inventory"),
-                new com.katt.changedextras.common.inventory.LatexInventoryProvider()
-        );
+    private static void alertNearbyAlliesOfMurder(ChangedEntity victim, LivingEntity killer) {
+        double alertRadius = 18.0D;
+        for (ChangedEntity ally : victim.level().getEntitiesOfClass(ChangedEntity.class, victim.getBoundingBox().inflate(alertRadius))) {
+            if (ally != victim && LatexAiUtil.isSameLatexType(victim, ally)) {
+                LatexMind allyMind = LatexMindStore.get(ally);
+                allyMind.addGrudgeKiller(killer.getUUID(), ally.tickCount + 1200); // 60-second grudge
+                allyMind.triggerEnrage(240);
+                ally.setTarget(killer);
+            }
+        }
     }
 
     private static void ensureSmartAiInstalled(ChangedEntity mob) {
-        if (!ChangedExtrasGameRules.isSmartLatexAiEnabled(mob.level().getGameRules())
-                || INSTALLED_MOBS.contains(mob)
-                || LatexAiUtil.isSmartAiExcluded(mob)) {
-            return;
-        }
+        if (INSTALLED_MOBS.contains(mob)) return;
 
-        INSTALLED_MOBS.add(mob);
         removeConflictingLookGoals(mob);
         removeConflictingCombatGoals(mob);
         installTargetShareGoal(mob);
         mob.setCanPickUpLoot(true);
+
+        // Let the navigator route straight through water instead of detouring around it or refusing
+        // to path once a target wades/swims in - latex creatures should be able to pursue into water.
+        mob.getNavigation().setCanFloat(true);
+        mob.setPathfindingMalus(BlockPathTypes.WATER, 0.0F);
+        mob.setPathfindingMalus(BlockPathTypes.WATER_BORDER, 0.0F);
 
         AttributeInstance followRange = mob.getAttribute(Attributes.FOLLOW_RANGE);
         if (followRange != null && followRange.getBaseValue() < 40.0D) {
@@ -132,10 +131,11 @@ public final class LatexMobAIHandler {
         }
 
         AttributeInstance movementSpeed = mob.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (movementSpeed != null && movementSpeed.getBaseValue() < MIN_GLOBAL_LATEX_MOVE_SPEED) {
-            movementSpeed.setBaseValue(MIN_GLOBAL_LATEX_MOVE_SPEED);
+        if (movementSpeed != null) {
+            movementSpeed.setBaseValue(LATEX_PLAYER_BASE_SPEED);
         }
 
+        INSTALLED_MOBS.add(mob);
     }
 
     private static void removeConflictingLookGoals(ChangedEntity mob) {
@@ -196,10 +196,9 @@ public final class LatexMobAIHandler {
             targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(mob, Player.class, true));
         }
 
-        // Reset movement speed to default
         AttributeInstance movementSpeed = mob.getAttribute(Attributes.MOVEMENT_SPEED);
-        if (movementSpeed != null && movementSpeed.getBaseValue() > 0.25D) {
-            movementSpeed.setBaseValue(0.23D);
+        if (movementSpeed != null) {
+            movementSpeed.setBaseValue(LATEX_PLAYER_BASE_SPEED);
         }
     }
 }

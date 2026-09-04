@@ -8,7 +8,9 @@ import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public final class LatexMind {
@@ -28,6 +30,47 @@ public final class LatexMind {
     @Nullable public LatexBrain.State cachedTerrainState;
     public List<BlockPos> imaginedBuildPath = new ArrayList<>();
     public List<BlockPos> cachedImaginedBuildPath = new ArrayList<>();
+
+    // Grudge memory of ally killers (UUID -> tick expire timestamp)
+    public final Map<UUID, Integer> grudgeKillers = new HashMap<>();
+    public int enrageTicks = 0;
+
+    // Curiosity memory
+    @Nullable public UUID curiosityTargetId;
+    public int curiosityTicks = 0;
+    public int curiosityCooldown = 0;
+    public int curiositySubState = 0;
+
+    // Survival / hiding state
+    public boolean isHiding = false;
+    @Nullable public BlockPos hidePos;
+    public int hideTicks = 0;
+    public int healCooldown = 0;
+
+    // Parkour state
+    public boolean isParkouring = false;
+    @Nullable public BlockPos parkourLandingPos = null;
+    @Nullable public BlockPos parkourTakeoffPos = null;
+    public int parkourTicks = 0;
+    public int parkourCooldown = 0;
+
+    // Sprint jumping state
+    public boolean isSprintJumping = false;
+    public int sprintJumpTicks = 0;
+
+    // Bow cooldown
+    public int bowCooldown = 0;
+
+    // Ranged (bow) attack state
+    public int bowChargeTicks = 0;
+    public int rangedAttackCooldown = 0;
+
+    // Current AI state
+    public LatexBrain.State state = LatexBrain.State.IDLE;
+
+    // Combat strafe timing
+    public int combatStrafeDir = 1; // 1 = left, -1 = right
+    public int combatStrafeTimer = 0;
 
     public int lastSeenTick = -10000;
     public int stuckTicks = 0;
@@ -94,6 +137,30 @@ public final class LatexMind {
                 && mob.tickCount <= retaliationExpireTick;
     }
 
+    public void addGrudgeKiller(UUID killerId, int expireTick) {
+        grudgeKillers.put(killerId, expireTick);
+    }
+
+    public boolean isGrudgeKiller(UUID killerId, int currentTick) {
+        Integer expireTick = grudgeKillers.get(killerId);
+        if (expireTick == null) {
+            return false;
+        }
+        if (currentTick > expireTick) {
+            grudgeKillers.remove(killerId);
+            return false;
+        }
+        return true;
+    }
+
+    public void triggerEnrage(int ticks) {
+        this.enrageTicks = Math.max(this.enrageTicks, ticks);
+    }
+
+    public boolean isEnraged() {
+        return enrageTicks > 0;
+    }
+
     public boolean remembersRecentTarget(ChangedEntity mob) {
         int memoryTicks = Config.latexAttackerMemoryTicks;
         return memoryTicks > 0 && lastSeenPos != null && mob.tickCount - lastSeenTick <= memoryTicks;
@@ -119,6 +186,15 @@ public final class LatexMind {
         activeBreakPos = null;
         blockBreakProgress = 0.0F;
         imaginedBuildPath.clear();
+        isParkouring = false;
+        parkourLandingPos = null;
+        parkourTakeoffPos = null;
+        parkourTicks = 0;
+        isSprintJumping = false;
+        sprintJumpTicks = 0;
+        bowCooldown = 0;
+        bowChargeTicks = 0;
+        state = LatexBrain.State.IDLE;
         invalidateNavigationCaches();
     }
 

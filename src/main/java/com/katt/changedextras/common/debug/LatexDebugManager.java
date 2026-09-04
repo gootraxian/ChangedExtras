@@ -28,9 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class LatexDebugManager {
     private static final Set<UUID> ENABLED_PLAYERS = ConcurrentHashMap.newKeySet();
     private static final double DEBUG_RADIUS = 40.0D;
-    private static final int DEBUG_SYNC_INTERVAL = 5;
+    private static final int DEBUG_SYNC_INTERVAL = 4;
     private static final int MAX_DEBUG_ENTRIES = 24;
-    private static final int MAX_PATH_NODES = 24;
+    private static final int MAX_PATH_NODES = 32;
 
     private LatexDebugManager() {
     }
@@ -49,6 +49,8 @@ public final class LatexDebugManager {
         ChangedExtrasNetwork.INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), new LatexDebugTogglePacket(enabled));
         if (!enabled) {
             ChangedExtrasNetwork.INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), new LatexDebugSnapshotPacket(List.of()));
+        } else {
+            ChangedExtrasNetwork.INSTANCE.send(PacketDistributor.PLAYER.with(() -> player), new LatexDebugSnapshotPacket(collectSnapshots(player)));
         }
         return enabled;
     }
@@ -80,10 +82,12 @@ public final class LatexDebugManager {
             LatexMind mind = LatexMindStore.get(mob);
             snapshots.add(new LatexDebugSnapshot(
                     mob.getId(),
+                    mind.state != null ? mind.state.name() : "IDLE",
                     immutablePos(mob.getTarget() != null ? mob.getTarget().blockPosition() : null),
                     immutablePos(mind.lastSeenPos),
                     immutablePos(mind.plannedBuildPos),
                     immutablePos(mind.activeBreakPos != null ? mind.activeBreakPos : mind.plannedBreakPos),
+                    immutablePos(mind.parkourLandingPos),
                     mind.activeBreakPos != null || mind.plannedBreakPos != null,
                     copyPositions(mind.imaginedBuildPath),
                     collectPathNodes(mob.getNavigation().getPath())

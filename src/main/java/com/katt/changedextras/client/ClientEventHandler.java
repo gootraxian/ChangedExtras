@@ -8,7 +8,9 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.client.event.RenderGuiOverlayEvent;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -18,10 +20,6 @@ public class ClientEventHandler {
     @Mod.EventBusSubscriber(modid = ChangedExtras.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE, value = Dist.CLIENT)
     public static class ClientParticleHandler {
 
-        /**
-         * Uses ClientTickEvent (fires once per client tick) rather than PlayerTickEvent
-         * so we loop over all players exactly once, not once-per-player.
-         */
         @SubscribeEvent
         public static void onClientTick(TickEvent.ClientTickEvent event) {
             if (event.phase != TickEvent.Phase.END) return;
@@ -37,10 +35,6 @@ public class ClientEventHandler {
             }
         }
 
-        /**
-         * Clear the sound manager when the player disconnects from a world so
-         * that looping sounds never bleed into the main menu or next session.
-         */
         @SubscribeEvent
         public static void onClientDisconnect(net.minecraftforge.event.level.LevelEvent.Unload event) {
             if (event.getLevel().isClientSide()) {
@@ -83,6 +77,18 @@ public class ClientEventHandler {
         @SubscribeEvent
         public static void onRenderLevelStage(RenderLevelStageEvent event) {
             LatexDebugOverlay.render(event);
+        }
+
+        @SubscribeEvent
+        public static void onRenderGuiOverlay(RenderGuiOverlayEvent.Post event) {
+            if (!LatexDebugOverlay.isEnabled()) return;
+            if (event.getOverlay() != VanillaGuiOverlay.HOTBAR.type()) return;
+
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null) return;
+
+            String text = "§b[ChangedExtras Debug] §aACTIVE §7| Tracked AI: §f" + LatexDebugOverlay.getSnapshotCount();
+            event.getGuiGraphics().drawString(mc.font, text, 8, 8, 0xFFFFFFFF, true);
         }
     }
 }
